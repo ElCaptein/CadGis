@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>CAD Pro v102 - Ultimate Surveyor</title>
+    <title>CAD Pro v2.0 - Ultimate Surveyor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,7 +22,8 @@
         .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
         .btn-active { background: var(--brand) !important; box-shadow: inset 0 0 0 2px white; }
         .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        
+        .btn-small { font-size: 10px; padding: 4px; }
+
         /* Stil Kontrolleri */
         .style-control { display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
         input[type=range] { width: 60px; }
@@ -51,13 +52,13 @@
     <div class="section-title">🎨 STİL VE GÖRÜNÜM</div>
     <div class="style-control">
         <span>Nokta Boyutu:</span>
-        <input type="range" id="ptSize" min="4" max="20" value="8" oninput="render()">
-        <input type="color" id="ptColor" value="#3498db" onchange="render()">
+        <input type="range" id="ptSize" min="4" max="20" value="8" oninput="renderStylesOnly()">
+        <input type="color" id="ptColor" value="#3498db" onchange="renderStylesOnly()">
     </div>
     <div class="style-control">
         <span>Hat Kalınlığı:</span>
-        <input type="range" id="lnWidth" min="1" max="10" value="2" oninput="render()">
-        <input type="color" id="lnColor" value="#2ecc71" onchange="render()">
+        <input type="range" id="lnWidth" min="1" max="10" value="2" oninput="renderStylesOnly()">
+        <input type="color" id="lnColor" value="#2ecc71" onchange="renderStylesOnly()">
     </div>
     <div class="style-control">
         <span>Etiket:</span>
@@ -72,7 +73,7 @@
     <div class="section-title">🔗 OTOMATİK HAT ÇİZİMİ</div>
     <div class="btn-row">
         <button class="btn" style="background:#8e44ad" onclick="autoLink('seq')">🔄 SIRALI (NCN)</button>
-        <button class="btn" style="background:#d35400" onclick="autoLink('near')">📍 EN YAKIN</button>
+        <button class="btn" style="background:#d35400" onclick="autoLink('near')">📍 EN YAKIN (MİN/MAX)</button>
     </div>
 
     <div class="section-title">🛠️ ÇİZİM ARAÇLARI</div>
@@ -85,18 +86,27 @@
         <button id="btn-delLine" class="btn btn-red" style="background:#c0392b" onclick="setMode('delLine')">✂ HAT SİL</button>
     </div>
 
-    <div class="section-title">📂 DOSYA</div>
+    <div class="section-title">📂 DOSYA İŞLEMLERİ</div>
     <div class="btn-row">
-        <button class="btn" style="background:#2980b9" onclick="document.getElementById('fileIn').click()">📥 YÜKLE</button>
-        <input type="file" id="fileIn" hidden onchange="loadFile(this)">
-        <button class="btn" style="background:#27ae60" onclick="exportData('xls')">📤 EXCEL</button>
+        <button class="btn" style="background:#2980b9" onclick="document.getElementById('fileIn').click()">📥 İÇE AKTAR (Tümü)</button>
+        <input type="file" id="fileIn" hidden onchange="loadFile(this)" accept=".ncn,.txt,.xyz,.csv,.kml,.geojson,.json">
+    </div>
+    <div class="section-title" style="margin-top:5px; border:none; font-size:10px;">DIŞA AKTAR</div>
+    <div class="btn-row">
+        <button class="btn btn-small" style="background:#27ae60" onclick="exportData('xls')">XLS (Excel)</button>
+        <button class="btn btn-small" style="background:#34495e" onclick="exportData('dxf')">DXF (Cad)</button>
     </div>
     <div class="btn-row">
-        <button class="btn" style="background:#34495e" onclick="exportData('dxf')">📤 DXF</button>
-        <button class="btn" style="background:#34495e" onclick="exportData('ncn')">📤 NCN</button>
+        <button class="btn btn-small" style="background:#7f8c8d" onclick="exportData('ncn')">NCN (Netcad)</button>
+        <button class="btn btn-small" style="background:#7f8c8d" onclick="exportData('xyz')">XYZ</button>
+    </div>
+    <div class="btn-row">
+        <button class="btn btn-small" style="background:#e67e22" onclick="exportData('kml')">KML (Google)</button>
+        <button class="btn btn-small" style="background:#8e44ad" onclick="exportData('geojson')">GeoJSON</button>
+        <button class="btn btn-small" style="background:#95a5a6" onclick="exportData('csv')">CSV</button>
     </div>
     
-    <button class="btn" style="background:#000; margin-top:5px;" onclick="zoomAll()">🎯 EKRANA SIĞDIR</button>
+    <button class="btn" style="background:#000; margin-top:10px;" onclick="zoomAll()">🎯 EKRANA SIĞDIR</button>
 </div>
 
 <div id="table-wrapper">
@@ -110,8 +120,8 @@
 
 <script>
 // --- GLOBAL DEĞİŞKENLER ---
-let pts = []; // {id, y, x, z}
-let lns = []; // {from, to} (Obje referansları)
+let pts = []; // {id, y, x, z, leafletMarker}
+let lns = []; // {from, to, leafletPoly} (Obje referansları)
 let map, lyrPts, lyrLns;
 let mode = 'idle';
 let lineStartPt = null;
@@ -130,14 +140,14 @@ function init() {
     });
 }
 
-// --- RENDER MOTORU (Stil Ayarlarıyla) ---
+// --- RENDER MOTORU ---
 function render() {
     lyrPts.clearLayers();
     lyrLns.clearLayers();
     const tBody = document.getElementById('tBody');
     tBody.innerHTML = '';
     
-    // Stil Ayarlarını Oku
+    // Stil Ayarları
     const pSize = document.getElementById('ptSize').value;
     const pColor = document.getElementById('ptColor').value;
     const lWidth = document.getElementById('lnWidth').value;
@@ -151,6 +161,8 @@ function render() {
             { color: lColor, weight: parseInt(lWidth), opacity: 0.8 }
         ).addTo(lyrLns);
         
+        lineObj.leafletPoly = poly; // Referansı sakla
+
         poly.on('click', (e) => {
             if (mode === 'delLine') {
                 L.DomEvent.stopPropagation(e);
@@ -161,8 +173,7 @@ function render() {
 
     // 2. Noktaları Çiz
     pts.forEach((p, i) => {
-        // Dinamik CSS ile Marker oluştur
-        const iconHtml = `<div style="
+        const iconHtml = `<div id="pt-icon-${i}" style="
             width:${pSize}px; height:${pSize}px; 
             background:${pColor}; 
             border:2px solid white; 
@@ -175,9 +186,11 @@ function render() {
                 className: 'custom-pt',
                 html: iconHtml,
                 iconSize: [pSize, pSize],
-                iconAnchor: [pSize/2, pSize/2] // Merkezi ortala
+                iconAnchor: [pSize/2, pSize/2]
             })
         }).addTo(lyrPts);
+
+        p.leafletMarker = marker; // Marker referansını sakla
 
         // Etiketleme
         let lblText = "";
@@ -191,7 +204,7 @@ function render() {
             });
         }
 
-        // Sürükleme Mantığı (Canlı Güncelleme)
+        // --- DINAMIK SURUKLEME MANTIGI ---
         marker.on('dragstart', (e) => {
             dragStartPos = e.target.getLatLng();
             document.getElementById('delta-box').style.display = 'block';
@@ -200,23 +213,25 @@ function render() {
 
         marker.on('drag', (e) => {
             const curr = e.target.getLatLng();
+            // 1. Koordinatları güncelle (Bellekteki)
+            pts[i].y = curr.lat;
+            pts[i].x = curr.lng;
+
+            // 2. Tablo inputlarını anlık güncelle
+            document.getElementById(`iy-${i}`).value = curr.lat.toFixed(3);
+            document.getElementById(`ix-${i}`).value = curr.lng.toFixed(3);
+
+            // 3. Delta kutusunu güncelle
             const dY = (curr.lat - dragStartPos.lat) * 100; // cm
             const dX = (curr.lng - dragStartPos.lng) * 100; // cm
             document.getElementById('delta-box').innerHTML = `<b>${p.id}</b> ΔY:${dY.toFixed(1)}cm | ΔX:${dX.toFixed(1)}cm`;
-            document.getElementById(`iy-${i}`).value = curr.lat.toFixed(3);
-            document.getElementById(`ix-${i}`).value = curr.lng.toFixed(3);
+
+            // 4. BAĞLI HATLARI GÜNCELLE (Performans için sadece ilgili hatlar)
+            updateConnectedLines(p);
         });
 
         marker.on('dragend', (e) => {
             document.getElementById('delta-box').style.display = 'none';
-            const finalPos = e.target.getLatLng();
-            if(confirm(`${p.id} yeri değişsin mi?`)) {
-                pts[i].y = finalPos.lat;
-                pts[i].x = finalPos.lng;
-                render();
-            } else {
-                render(); // Eski yerine döner
-            }
         });
 
         marker.on('click', (e) => {
@@ -231,13 +246,61 @@ function render() {
         tr.id = `row-${i}`;
         tr.innerHTML = `
             <td><input class="coord-inp" value="${p.id}" onchange="pts[${i}].id=this.value;render()"></td>
-            <td><input id="iy-${i}" class="coord-inp" type="number" step="0.01" value="${p.y.toFixed(3)}" onchange="pts[${i}].y=parseFloat(this.value);render()"></td>
-            <td><input id="ix-${i}" class="coord-inp" type="number" step="0.01" value="${p.x.toFixed(3)}" onchange="pts[${i}].x=parseFloat(this.value);render()"></td>
+            <td><input id="iy-${i}" class="coord-inp" type="number" step="0.01" value="${p.y.toFixed(3)}" onchange="updatePtFromTable(${i}, 'y', this.value)"></td>
+            <td><input id="ix-${i}" class="coord-inp" type="number" step="0.01" value="${p.x.toFixed(3)}" onchange="updatePtFromTable(${i}, 'x', this.value)"></td>
             <td><input class="coord-inp" type="number" step="0.01" value="${p.z}" onchange="pts[${i}].z=parseFloat(this.value);render()"></td>
             <td><button onclick="deletePoint(${i})" style="color:red;border:none;background:none;cursor:pointer;">🗑️</button></td>
         `;
         tBody.appendChild(tr);
     });
+}
+
+// Sadece stil değişince komple render yapmamak için (Hız için)
+function renderStylesOnly() {
+    const pSize = document.getElementById('ptSize').value;
+    const pColor = document.getElementById('ptColor').value;
+    const lWidth = document.getElementById('lnWidth').value;
+    const lColor = document.getElementById('lnColor').value;
+
+    pts.forEach((p, i) => {
+        const div = document.getElementById(`pt-icon-${i}`);
+        if(div) {
+            div.style.width = pSize + 'px';
+            div.style.height = pSize + 'px';
+            div.style.background = pColor;
+        }
+        if(p.leafletMarker) {
+            // İkon çapasını güncellemek gerekirse yeniden oluşturmak daha sağlıklı ama CSS yeterli görsel için
+        }
+    });
+
+    lns.forEach(l => {
+        if(l.leafletPoly) l.leafletPoly.setStyle({ color: lColor, weight: parseInt(lWidth) });
+    });
+}
+
+function updateConnectedLines(pointObj) {
+    // Bu noktayı kullanan tüm hatları bul ve koordinatlarını yenile
+    lns.forEach(l => {
+        if (l.from === pointObj || l.to === pointObj) {
+            if(l.leafletPoly) {
+                l.leafletPoly.setLatLngs([[l.from.y, l.from.x], [l.to.y, l.to.x]]);
+            }
+        }
+    });
+}
+
+function updatePtFromTable(idx, axis, val) {
+    const v = parseFloat(val);
+    if(axis === 'y') pts[idx].y = v;
+    if(axis === 'x') pts[idx].x = v;
+    
+    // Haritadaki marker'ı taşı
+    if(pts[idx].leafletMarker) {
+        pts[idx].leafletMarker.setLatLng([pts[idx].y, pts[idx].x]);
+    }
+    // Hatları güncelle
+    updateConnectedLines(pts[idx]);
 }
 
 // --- OTOMATİK HAT ALGORİTMALARI ---
@@ -246,43 +309,42 @@ function autoLink(type) {
     lns = []; // Eski hatları temizle
 
     if(type === 'seq') {
-        // NCN Sıralı (P1->P2, P2->P3...)
-        // Listede arka arkaya gelenleri bağlar
         for(let i=0; i < pts.length - 1; i++) {
             lns.push({ from: pts[i], to: pts[i+1] });
         }
         alert("Noktalar liste sırasına göre bağlandı.");
     } 
     else if(type === 'near') {
-        // En Yakın + Maks Mesafe Kontrolü
-        const maxDistStr = prompt("Maksimum hat mesafesi kaç metre olsun?", "50");
-        if(!maxDistStr) return;
-        const maxDist = parseFloat(maxDistStr);
+        const minStr = prompt("Minimum hat uzunluğu (metre)?", "0.1");
+        const maxStr = prompt("Maksimum hat uzunluğu (metre)?", "50");
+        
+        if(minStr === null || maxStr === null) return;
+        
+        const minDist = parseFloat(minStr);
+        const maxDist = parseFloat(maxStr);
 
         let unvisited = [...pts];
-        let current = unvisited.shift(); // İlk noktadan başla
+        let current = unvisited.shift();
 
         while(unvisited.length > 0) {
             let nearestIdx = -1;
-            let minDist = Infinity;
+            let currentMinDist = Infinity;
 
             // En yakınını bul
             unvisited.forEach((p, idx) => {
                 const d = Math.sqrt(Math.pow(current.x - p.x, 2) + Math.pow(current.y - p.y, 2));
-                if(d < minDist) { minDist = d; nearestIdx = idx; }
+                if(d < currentMinDist) { currentMinDist = d; nearestIdx = idx; }
             });
 
             if(nearestIdx !== -1) {
-                // Eğer mesafe limit dahilindeyse bağla
-                if(minDist <= maxDist) {
+                // Mesafe kontrolü (MİN ve MAX aralığında mı?)
+                if(currentMinDist >= minDist && currentMinDist <= maxDist) {
                     const next = unvisited[nearestIdx];
                     lns.push({ from: current, to: next });
-                    // Bulduğumuz noktaya git
                     unvisited.splice(nearestIdx, 1);
                     current = next;
                 } else {
-                    // Mesafe çok uzak, hat çizme ama sıçrama yap (zinciri kopar)
-                    // Bir sonraki en yakın noktadan çizime devam et ama arada çizgi olmasın
+                    // Kriter dışı ise zinciri kopar, o noktaya atla ama çizgi çekme
                     const next = unvisited.splice(nearestIdx, 1)[0];
                     current = next; 
                 }
@@ -290,7 +352,7 @@ function autoLink(type) {
                 break;
             }
         }
-        alert(`Maksimum ${maxDist}m mesafedeki en yakın noktalar bağlandı.`);
+        alert(`Min: ${minDist}m - Max: ${maxDist}m aralığındaki en yakınlar bağlandı.`);
     }
     render();
 }
@@ -325,7 +387,7 @@ function handleLineClick(p) {
 function deletePoint(index) {
     if(confirm("Nokta silinsin mi?")) {
         const pt = pts[index];
-        lns = lns.filter(l => l.from !== pt && l.to !== pt); // Bağlı hatları temizle
+        lns = lns.filter(l => l.from !== pt && l.to !== pt);
         pts.splice(index, 1);
         render();
     }
@@ -341,52 +403,183 @@ function zoomAll() {
     if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.y,p.x]))).getBounds().pad(0.1));
 }
 
-// --- DOSYA & EXPORT ---
+// --- DOSYA YÖNETİMİ ---
 function loadFile(input) {
     const file = input.files[0];
     if(!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
     const reader = new FileReader();
+
     reader.onload = (e) => {
-        if(file.name.toLowerCase().includes('.ncn')) parseNCN(e.target.result);
+        const content = e.target.result;
+        pts = []; lns = []; // Sıfırla
+
+        if (ext === 'ncn' || ext === 'xyz' || ext === 'txt') {
+            parseTextData(content);
+        } else if (ext === 'csv') {
+            parseCSV(content);
+        } else if (ext === 'kml') {
+            parseKML(content);
+        } else if (ext === 'geojson' || ext === 'json') {
+            parseGeoJSON(content);
+        }
+        
         render(); zoomAll();
+        input.value = ''; // Reset input
     };
-    reader.readAsText(file, "windows-1254");
+
+    if(ext === 'xls' || ext === 'xlsx') {
+        alert("Excel import için lütfen önce CSV veya Metin (TXT/NCN) formatına dönüştürün.");
+        input.value = '';
+    } else {
+        reader.readAsText(file, "UTF-8"); // Genel UTF-8, NCN için gerekirse windows-1254
+    }
 }
 
-function parseNCN(data) {
-    pts = []; lns = [];
+function parseTextData(data) {
+    // NCN veya XYZ boşluklu format
     data.split('\n').forEach(line => {
-        const d = line.trim().split(/\s+/);
+        // Virgülleri noktaya çevir, birden fazla boşluğu tek boşluğa indir
+        let d = line.trim().replace(/,/g, '.').split(/\s+/);
         if(d.length >= 3) {
-            const y = parseFloat(d[1].replace(',','.'));
-            const x = parseFloat(d[2].replace(',','.'));
-            if(!isNaN(y)) pts.push({ id: d[0], y: y, x: x, z: parseFloat(d[3]||0) });
+            let id = d[0];
+            let y = parseFloat(d[1]);
+            let x = parseFloat(d[2]);
+            let z = parseFloat(d[3] || 0);
+            
+            // Eğer ilk kolon sayı değilse ID'dir, yoksa XYZ formatıdır
+            if(isNaN(parseFloat(id)) || d.length > 3) {
+                 // Standart NCN: ID Y X Z
+            } else {
+                 // Sadece koordinat olabilir: Y X Z
+                 id = "P" + (pts.length + 1);
+                 y = parseFloat(d[0]); x = parseFloat(d[1]); z = parseFloat(d[2]||0);
+            }
+
+            if(!isNaN(y) && !isNaN(x)) pts.push({ id: id, y: y, x: x, z: z });
         }
     });
 }
 
+function parseCSV(data) {
+    const lines = data.split('\n');
+    lines.forEach((line, i) => {
+        if(i===0 && line.toLowerCase().includes('y')) return; // Header atla
+        const d = line.trim().split(','); // CSV virgül ayracı
+        if(d.length >= 2) {
+            pts.push({
+                id: d[0] || "P"+(pts.length+1),
+                y: parseFloat(d[1]),
+                x: parseFloat(d[2]),
+                z: parseFloat(d[3]||0)
+            });
+        }
+    });
+}
+
+function parseKML(xmlStr) {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlStr, "text/xml");
+    const placemarks = xml.getElementsByTagName("Placemark");
+    
+    for(let pm of placemarks) {
+        const name = pm.getElementsByTagName("name")[0]?.textContent || "P"+(pts.length+1);
+        const coords = pm.getElementsByTagName("coordinates")[0]?.textContent.trim();
+        if(coords) {
+            const c = coords.split(',');
+            // KML: Lon(X), Lat(Y), Z
+            pts.push({ id: name, x: parseFloat(c[0]), y: parseFloat(c[1]), z: parseFloat(c[2]||0) });
+        }
+    }
+}
+
+function parseGeoJSON(jsonStr) {
+    try {
+        const geo = JSON.parse(jsonStr);
+        const features = geo.features || (geo.type === 'Feature' ? [geo] : []);
+        features.forEach(f => {
+            if(f.geometry && f.geometry.type === 'Point') {
+                const c = f.geometry.coordinates;
+                // GeoJSON: [Lon, Lat, Elev] -> [X, Y, Z]
+                pts.push({
+                    id: f.properties?.name || f.properties?.id || "P"+(pts.length+1),
+                    x: c[0], y: c[1], z: c[2] || 0
+                });
+            }
+        });
+    } catch(e) { alert("GeoJSON hatası"); }
+}
+
 function exportData(type) {
     if(!pts.length) return alert("Veri yok!");
+    
+    let content = "";
+    let filename = "Proje." + type;
+    let mime = "text/plain";
+
     if(type === 'xls') {
         const ws = XLSX.utils.json_to_sheet(pts.map(p => ({"No":p.id, "Y":p.y, "X":p.x, "Z":p.z})));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Noktalar");
         XLSX.writeFile(wb, "Proje.xlsx");
-    } else if (type === 'ncn') {
-        const txt = pts.map(p => `${p.id}\t${p.y.toFixed(3)}\t${p.x.toFixed(3)}\t${p.z.toFixed(3)}`).join("\r\n");
-        download(txt, "Proje.ncn");
-    } else if (type === 'dxf') {
-        let txt = "0\nSECTION\n2\nENTITIES\n";
-        pts.forEach(p => txt += `0\nPOINT\n8\nNOKTA\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`);
-        lns.forEach(l => txt += `0\nLINE\n8\nHAT\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`);
-        txt += "0\nENDSEC\n0\nEOF";
-        download(txt, "Proje.dxf");
+        return;
+    } 
+    else if (type === 'ncn') {
+        content = pts.map(p => `${p.id}\t${p.y.toFixed(3)}\t${p.x.toFixed(3)}\t${p.z.toFixed(3)}`).join("\r\n");
+    } 
+    else if (type === 'xyz') {
+        content = pts.map(p => `${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)}`).join("\r\n");
     }
+    else if (type === 'csv') {
+        content = "ID,Y,X,Z\n" + pts.map(p => `${p.id},${p.y},${p.x},${p.z}`).join("\n");
+        mime = "text/csv";
+    }
+    else if (type === 'dxf') {
+        content = "0\nSECTION\n2\nENTITIES\n";
+        pts.forEach(p => content += `0\nPOINT\n8\nNOKTA\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`);
+        lns.forEach(l => content += `0\nLINE\n8\nHAT\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`);
+        content += "0\nENDSEC\n0\nEOF";
+    }
+    else if (type === 'kml') {
+        content = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    ${pts.map(p => `
+    <Placemark>
+      <name>${p.id}</name>
+      <Point><coordinates>${p.x},${p.y},${p.z}</coordinates></Point>
+    </Placemark>`).join('')}
+    ${lns.map(l => `
+    <Placemark>
+      <LineString><coordinates>${l.from.x},${l.from.y},0 ${l.to.x},${l.to.y},0</coordinates></LineString>
+    </Placemark>`).join('')}
+  </Document>
+</kml>`;
+        mime = "application/vnd.google-earth.kml+xml";
+    }
+    else if (type === 'geojson') {
+        const fc = {
+            type: "FeatureCollection",
+            features: pts.map(p => ({
+                type: "Feature",
+                properties: { name: p.id, z: p.z },
+                geometry: { type: "Point", coordinates: [p.x, p.y, p.z] }
+            })).concat(lns.map(l => ({
+                type: "Feature",
+                properties: { type: "line" },
+                geometry: { type: "LineString", coordinates: [[l.from.x, l.from.y], [l.to.x, l.to.y]] }
+            })))
+        };
+        content = JSON.stringify(fc);
+        mime = "application/json";
+    }
+
+    download(content, filename, mime);
 }
 
-function download(content, filename) {
+function download(content, filename, mimeType) {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], {type: 'text/plain'}));
+    a.href = URL.createObjectURL(new Blob([content], {type: mimeType || 'text/plain'}));
     a.download = filename;
     a.click();
 }
