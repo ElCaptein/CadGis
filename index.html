@@ -108,10 +108,17 @@
     
     <button class="btn" style="background:#000; margin-top:10px;" onclick="zoomAll()">🎯 EKRANA SIĞDIR</button>
     
-    <div align="center" style="margin-top: 15px; font-family: Arial, sans-serif; color: #333; font-size: 14px;">
-  <span>📊 Sayfa Görüntüleme: </span>
-  <script src="https://count.getloli.com/get/@elcaptein-cadgis?theme=asoul"></script>
+    <div align="center" style="margin: 20px; font-family: Arial; border: 2px solid #2231A8; padding: 10px; border-radius: 10px;">
+  <span style="color: #555;">🌍 Toplam Ziyaretçi Sayısı:</span>
+  <h2 id="total-counter" style="color: #2231A8; margin: 5px 0;">Yükleniyor...</h2>
 </div>
+
+<script>
+function cb(response) {
+    document.getElementById('total-counter').innerText = response.value;
+}
+</script>
+<script async src="https://api.countapi.xyz/hit/elcaptein-cadgis/visits?callback=cb"></script>
 </div>
 
 <div id="table-wrapper">
@@ -597,6 +604,7 @@ init();
 </div>
 </body>
 </html>
+
 
 
 
