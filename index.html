@@ -2,14 +2,14 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile CAD Pro v2.1 </title>
+    <title>Mobile CAD Pro v2.2 - Boykesit Modu</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
-        :root { --brand: #e67e22; --dark: #2c3e50; --danger: #c0392b; --success: #27ae60; --info: #2980b9; --measure: #f1c40f; --area: #9b59b6; }
+        :root { --brand: #e67e22; --dark: #2c3e50; --danger: #c0392b; --success: #27ae60; --info: #2980b9; --measure: #f1c40f; --area: #9b59b6; --profile: #8e44ad; }
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #333; overflow: hidden; }
         #map { flex-grow: 1; cursor: crosshair; background: #1a1a1a; }
         
@@ -44,12 +44,38 @@
         
         .cad-label { background: transparent !important; border: none !important; color: #fff !important; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; text-align: center; margin-top: -5px; }
         .layer-row { display: flex; justify-content: space-between; align-items: center; padding: 4px; border-bottom: 1px solid #eee; font-size: 11px; }
+
+        /* PROFILE MODAL */
+        #profile-modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 800px; background: white; z-index: 4000;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); border-radius: 8px; padding: 15px;
+            flex-direction: column;
+        }
+        #profile-chart-container { width: 100%; height: 300px; background: #f9f9f9; border: 1px solid #ddd; position: relative; margin-bottom: 10px; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .modal-header { font-weight: bold; font-size: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .close-btn { cursor: pointer; color: red; font-size: 18px; }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
 <div id="info-panel"></div>
+
+<div id="profile-modal">
+    <div class="modal-header">
+        <span>📉 BOYKESİT (PROFİL) ANALİZİ</span>
+        <span class="close-btn" onclick="closeProfile()">✖</span>
+    </div>
+    <div id="profile-chart-container">
+        <canvas id="profileCanvas"></canvas>
+    </div>
+    <div class="grid-2">
+        <button class="btn" style="background:#217346" onclick="exportProfileExcel()">💾 EXCEL OLARAK İNDİR</button>
+        <button class="btn" style="background:#555" onclick="closeProfile()">KAPAT</button>
+    </div>
+</div>
 
 <div class="sidebar">
     <div style="padding:10px; background:#fff; border-bottom:1px solid #eee;">
@@ -60,6 +86,26 @@
     </div>
 
     <div class="acc-item active">
+        <div class="acc-header" onclick="toggleAcc(this)">📐 HESAPLAMA & ÇİZİM <span>▼</span></div>
+        <div class="acc-content">
+            <div class="grid-2">
+                <button id="btn-measure" class="btn" style="background:var(--measure); color:#000;" onclick="setMode('measure')">📏 CETVEL (Mesafe)</button>
+                <button id="btn-area" class="btn" style="background:var(--area);" onclick="setMode('area')">📐 ALAN HESABI</button>
+            </div>
+             <button id="btn-profile" class="btn" style="background:var(--profile);" onclick="setMode('profile')">📉 BOYKESİT (PROFİL)</button>
+            <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
+            <div class="grid-2">
+                <button id="btn-add" class="btn" onclick="setMode('add')">➕ NOKTA AT</button>
+                <button id="btn-line" class="btn" onclick="setMode('line')">➖ HAT ÇİZ</button>
+            </div>
+            <div class="grid-2">
+                <button id="btn-delPt" class="btn" style="background:var(--danger)" onclick="setMode('delPt')">✖ SİL (Nokta)</button>
+                <button id="btn-delLn" class="btn" style="background:var(--danger)" onclick="setMode('delLn')">✂ SİL (Hat)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="acc-item">
         <div class="acc-header" onclick="toggleAcc(this)">📂 DOSYA & İÇE/DIŞA AKTAR <span>▼</span></div>
         <div class="acc-content">
             <button class="btn" style="background:var(--info)" onclick="document.getElementById('fileIn').click()">📥 DOSYA YÜKLE (NCN/TXT)</button>
@@ -72,25 +118,6 @@
                 <button class="btn" style="background:#666" onclick="exportXYZ()">XYZ</button>
                 <button class="btn" style="background:#3498db" onclick="exportKML()">KML</button>
                 <button class="btn" style="background:#9b59b6" onclick="exportJSON()">JSON</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">📐 HESAPLAMA & ÇİZİM <span>▼</span></div>
-        <div class="acc-content">
-            <div class="grid-2">
-                <button id="btn-measure" class="btn" style="background:var(--measure); color:#000;" onclick="setMode('measure')">📏 CETVEL (Mesafe)</button>
-                <button id="btn-area" class="btn" style="background:var(--area);" onclick="setMode('area')">📐 ALAN HESABI</button>
-            </div>
-            <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
-            <div class="grid-2">
-                <button id="btn-add" class="btn" onclick="setMode('add')">➕ NOKTA AT</button>
-                <button id="btn-line" class="btn" onclick="setMode('line')">➖ HAT ÇİZ</button>
-            </div>
-            <div class="grid-2">
-                <button id="btn-delPt" class="btn" style="background:var(--danger)" onclick="setMode('delPt')">✖ SİL (Nokta)</button>
-                <button id="btn-delLn" class="btn" style="background:var(--danger)" onclick="setMode('delLn')">✂ SİL (Hat)</button>
             </div>
         </div>
     </div>
@@ -144,7 +171,8 @@
 let pts = []; let lns = []; let history = []; 
 let map, lyrPts, lyrLns, lyrTemp;
 let mode = 'idle'; let lineStart = null; 
-let measurePts = []; let areaPts = [];
+let measurePts = []; let areaPts = []; let profilePts = []; // Profil noktaları eklendi
+let profileData = []; // Profil hesap verileri
 const hiddenLayers = new Set(); const layerColors = {};
 
 function init() {
@@ -160,20 +188,19 @@ function init() {
         else if(mode === 'area') addAreaPt(e.latlng);
     });
     
-    // Sağ tık ile ölçüm/alan bitirme
+    // Sağ tık ile ölçüm/alan/profil bitirme
     map.on('contextmenu', (e) => {
         if(mode === 'measure' || mode === 'area') {
-            mode = 'idle';
-            lyrTemp.clearLayers();
-            hideInfo();
-            document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active'));
+            resetMode();
+        } else if (mode === 'profile') {
+            finishProfile();
         }
     });
 }
 
 function render() {
     lyrPts.clearLayers(); lyrLns.clearLayers(); 
-    if(mode !== 'measure' && mode !== 'area') lyrTemp.clearLayers();
+    if(mode !== 'measure' && mode !== 'area' && mode !== 'profile') lyrTemp.clearLayers();
     
     const tBody = document.getElementById('tBody'); tBody.innerHTML = '';
     const pType = document.getElementById('ptType').value;
@@ -216,6 +243,7 @@ function render() {
             if(mode === 'line') handleLine(p);
             else if(mode === 'measure') addMeasurePt({lat:p.y, lng:p.x});
             else if(mode === 'area') addAreaPt({lat:p.y, lng:p.x});
+            else if(mode === 'profile') addToProfile(p);
             else if(mode === 'delPt') { saveState(); pts.splice(i,1); cleanupLines(); render(); }
             else highlightRow(i, true);
         });
@@ -235,104 +263,187 @@ function render() {
     updateLayerList();
 }
 
-// --- CETVEL (MEASURE) ---
+// --- BOYKESİT / PROFİL MODÜLÜ ---
+function addToProfile(p) {
+    // Aynı nokta üst üste eklenmesin
+    if(profilePts.length > 0 && profilePts[profilePts.length-1] === p) return;
+    
+    profilePts.push(p);
+    
+    // Geçici Çizgi
+    lyrTemp.clearLayers();
+    if(profilePts.length > 1) {
+        const coords = profilePts.map(pt => [pt.y, pt.x]);
+        L.polyline(coords, {color: '#8e44ad', weight: 4}).addTo(lyrTemp);
+    }
+    profilePts.forEach(pt => {
+        L.circleMarker([pt.y, pt.x], {radius: 5, color: '#8e44ad', fillColor: '#fff', fillOpacity:1}).addTo(lyrTemp);
+    });
+
+    showInfo(`📉 BOYKESİT: ${profilePts.length} nokta seçildi.\nBitirmek için Sağ Tık...`);
+}
+
+function finishProfile() {
+    if(profilePts.length < 2) { alert("Boykesit için en az 2 nokta seçmelisiniz."); return; }
+    
+    // HESAPLAMA
+    let totalDist = 0;
+    profileData = [];
+    
+    profilePts.forEach((p, i) => {
+        let dist = 0;
+        if(i > 0) {
+            dist = Math.sqrt(Math.pow(p.x - profilePts[i-1].x, 2) + Math.pow(p.y - profilePts[i-1].y, 2));
+            totalDist += dist;
+        }
+        profileData.push({
+            no: p.id,
+            distPartial: dist,
+            distCum: totalDist,
+            z: p.z
+        });
+    });
+
+    drawProfileChart();
+    document.getElementById('profile-modal').style.display = 'flex';
+    resetMode();
+}
+
+function drawProfileChart() {
+    const canvas = document.getElementById('profileCanvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.parentElement.offsetWidth;
+    const h = canvas.parentElement.offsetHeight;
+    canvas.width = w; canvas.height = h;
+
+    // Min/Max bul
+    const maxDist = profileData[profileData.length-1].distCum;
+    let minZ = Infinity, maxZ = -Infinity;
+    profileData.forEach(d => { if(d.z < minZ) minZ=d.z; if(d.z > maxZ) maxZ=d.z; });
+    
+    if(maxZ === minZ) { maxZ += 1; minZ -= 1; } // Düz çizgi hatası önleme
+    const rangeZ = maxZ - minZ;
+    const padding = 40;
+    
+    // Temizle
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
+    
+    // Grid ve Eksenler
+    ctx.beginPath(); ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+    // Basit grid
+    for(let i=0; i<=5; i++) {
+        let y = h - padding - (i/5)*(h-2*padding);
+        ctx.moveTo(padding, y); ctx.lineTo(w-padding, y);
+    }
+    ctx.stroke();
+
+    // ÇİZİM FONKSİYONLARI
+    const mapX = (d) => padding + (d / maxDist) * (w - 2*padding);
+    const mapY = (z) => h - padding - ((z - minZ) / rangeZ) * (h - 2*padding);
+
+    // Profil Çizgisi
+    ctx.beginPath();
+    ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 3;
+    ctx.moveTo(mapX(profileData[0].distCum), mapY(profileData[0].z));
+    
+    for(let i=1; i<profileData.length; i++) {
+        ctx.lineTo(mapX(profileData[i].distCum), mapY(profileData[i].z));
+    }
+    ctx.stroke();
+
+    // Noktalar ve Yazılar
+    ctx.fillStyle = '#2c3e50'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    profileData.forEach(d => {
+        const x = mapX(d.distCum);
+        const y = mapY(d.z);
+        
+        ctx.beginPath(); ctx.arc(x, y, 4, 0, 2*Math.PI); ctx.fill();
+        ctx.fillText(`${d.no}`, x, y - 15);
+        ctx.fillText(`Z:${d.z.toFixed(2)}`, x, y - 5);
+        ctx.fillText(`L:${d.distCum.toFixed(1)}`, x, h - 10);
+    });
+    
+    // Eksen Etiketleri
+    ctx.save();
+    ctx.translate(15, h/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center';
+    ctx.fillText("KOT (Z)", 0, 0);
+    ctx.restore();
+    ctx.fillText("MESAFE (metre)", w/2, h-5);
+}
+
+function closeProfile() {
+    document.getElementById('profile-modal').style.display = 'none';
+}
+
+function exportProfileExcel() {
+    if(profileData.length === 0) return;
+    
+    const ws_data = [
+        ["Nokta No", "Ara Mesafe (m)", "Kümülatif Mesafe (m)", "Kot (Z)"]
+    ];
+    
+    profileData.forEach(d => {
+        ws_data.push([d.no, d.distPartial.toFixed(3), d.distCum.toFixed(3), d.z.toFixed(3)]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Boykesit");
+    XLSX.writeFile(wb, "Boykesit_Verileri.xlsx");
+}
+
+// --- DİĞER MEVCUT FONKSİYONLAR ---
 function addMeasurePt(latlng) {
     measurePts.push(latlng);
     lyrTemp.clearLayers();
-    
-    // Çizgi Çiz
-    if(measurePts.length > 1) {
-        L.polyline(measurePts, {color: '#f1c40f', weight: 3, dashArray: '10, 10'}).addTo(lyrTemp);
-    }
-    // Noktaları Göster
+    if(measurePts.length > 1) L.polyline(measurePts, {color: '#f1c40f', weight: 3, dashArray: '10, 10'}).addTo(lyrTemp);
     measurePts.forEach(pt => L.circleMarker(pt, {radius:3, color:'#f1c40f'}).addTo(lyrTemp));
-
-    // Mesafe Hesapla
     let totalDist = 0;
-    for(let i=0; i<measurePts.length-1; i++) {
-        totalDist += map.distance(measurePts[i], measurePts[i+1]);
-    }
-    
-    showInfo(`📏 CETVEL\nNokta Sayısı: ${measurePts.length}\nToplam Uzunluk: ${totalDist.toFixed(3)} m\n(Bitirmek için sağ tık)`);
+    for(let i=0; i<measurePts.length-1; i++) totalDist += map.distance(measurePts[i], measurePts[i+1]);
+    showInfo(`📏 CETVEL\nNokta: ${measurePts.length}\nToplam: ${totalDist.toFixed(3)} m\n(Bitirmek için sağ tık)`);
 }
 
-// --- ALAN (AREA) ---
 function addAreaPt(latlng) {
     areaPts.push(latlng);
     lyrTemp.clearLayers();
-
     if(areaPts.length > 2) {
         L.polygon(areaPts, {color: '#9b59b6', fillColor: '#9b59b6', fillOpacity: 0.3}).addTo(lyrTemp);
-        // Alan Hesabı (Shoelace Formula)
-        let area = 0;
-        let j = areaPts.length - 1;
-        for (let i = 0; i < areaPts.length; i++) {
-            area += (areaPts[j].lng + areaPts[i].lng) * (areaPts[j].lat - areaPts[i].lat);
-            j = i;
-        }
+        let area = 0; let j = areaPts.length - 1;
+        for (let i = 0; i < areaPts.length; i++) { area += (areaPts[j].lng + areaPts[i].lng) * (areaPts[j].lat - areaPts[i].lat); j = i; }
         area = Math.abs(area / 2.0);
-        showInfo(`📐 ALAN HESABI\nAlan: ${area.toFixed(3)} m²\n(${(area/10000).toFixed(4)} Hektar)\n(Bitirmek için sağ tık)`);
+        showInfo(`📐 ALAN\n${area.toFixed(3)} m²\n(${(area/10000).toFixed(4)} Ha)\n(Bitirmek için sağ tık)`);
     } else {
         areaPts.forEach(pt => L.circleMarker(pt, {radius:3, color:'#9b59b6'}).addTo(lyrTemp));
-        showInfo(`📐 ALAN: ${areaPts.length} nokta seçildi.\n(En az 3 nokta gerekli)`);
+        showInfo(`📐 ALAN: ${areaPts.length} nokta.\n(En az 3 nokta gerekli)`);
     }
 }
 
-// --- DOSYA YÜKLEME (SORULU) ---
 function loadFile(input) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        // KULLANICIYA SOR
-        const isYX = confirm("DOSYA KOORDİNAT SIRALAMASI:\n\n[TAMAM] -> Y (Sağa), X (Yukarı)  [Standart NCN]\n[İPTAL] -> X (Yukarı), Y (Sağa)  [Ters Sıra]");
-        
-        const lines = e.target.result.split('\n'); 
-        pts = []; lns = [];
-        
+        const isYX = confirm("DOSYA SIRALAMASI:\n[TAMAM] -> Y (Sağa), X (Yukarı)\n[İPTAL] -> X (Yukarı), Y (Sağa)");
+        const lines = e.target.result.split('\n'); pts = []; lns = [];
         lines.forEach(line => {
             const d = line.trim().split(/\s+/);
             if(d.length >= 3) {
-                let id = d[0];
-                let val1 = parseFloat(d[1]);
-                let val2 = parseFloat(d[2]);
-                let z = parseFloat(d[3]) || 0;
-                let lay = "0"; 
-                const m = line.match(/"([^"]+)"/); if(m) lay=m[1];
+                let id = d[0]; let val1 = parseFloat(d[1]); let val2 = parseFloat(d[2]); let z = parseFloat(d[3]) || 0;
+                let lay = "0"; const m = line.match(/"([^"]+)"/); if(m) lay=m[1];
                 if(!layerColors[lay]) layerColors[lay] = '#'+Math.floor(Math.random()*16777215).toString(16);
-                
-                // SEÇİME GÖRE ATAMA (Harita: Lat=Y(Yukarı/Kuzey), Lng=X(Sağ/Doğu))
-                let finalY, finalX; // Y=Lat, X=Lng for Leaflet logic
-                
-                if(isYX) {
-                    // Dosya: ID Y(Doğu) X(Kuzey)
-                    // Harita: Lng(Doğu) Lat(Kuzey)
-                    finalX = val1; // Lng
-                    finalY = val2; // Lat
-                } else {
-                    // Dosya: ID X(Kuzey) Y(Doğu)
-                    finalY = val1; // Lat
-                    finalX = val2; // Lng
-                }
-
-                if(!isNaN(finalY) && !isNaN(finalX)) {
-                    pts.push({ id: id, y: finalY, x: finalX, z: z, layer: lay, color: layerColors[lay] });
-                }
+                let finalY, finalX; if(isYX) { finalX = val1; finalY = val2; } else { finalY = val1; finalX = val2; }
+                if(!isNaN(finalY) && !isNaN(finalX)) pts.push({ id: id, y: finalY, x: finalX, z: z, layer: lay, color: layerColors[lay] });
             }
         });
         render(); zoomAll();
-        // Tablo başlıklarını güncellemek opsiyonel ama kullanıcıya bilgi verir
-        document.querySelector('thead th:nth-child(2)').innerText = "Y (DOĞU)";
-        document.querySelector('thead th:nth-child(3)').innerText = "X (KUZEY)";
     };
     reader.readAsText(input.files[0]);
 }
 
-// --- FONKSİYONLAR  ---
 function autoLink(type) {
     saveState();
-    const minD = type==='sequence' ? 0 : parseFloat(prompt("Min Mesafe (m)?", "0.01"));
-    const maxD = type==='sequence' ? 999999 : parseFloat(prompt("Max Mesafe (m)?", "100.0"));
+    const minD = type==='sequence' ? 0 : parseFloat(prompt("Min Mesafe?", "0.01"));
+    const maxD = type==='sequence' ? 999999 : parseFloat(prompt("Max Mesafe?", "100.0"));
     if(isNaN(minD) || isNaN(maxD)) return;
-
     if (type === 'layer') {
         const groups = {}; pts.forEach(p => { if(!groups[p.layer]) groups[p.layer]=[]; groups[p.layer].push(p); });
         for(const k in groups) { const grp = groups[k]; for(let i=0; i<grp.length-1; i++) { const d = getDist(grp[i], grp[i+1]); if(d >= minD && d <= maxD) lns.push({from:grp[i], to:grp[i+1], layer:k, color:grp[i].color}); } }
@@ -350,12 +461,14 @@ function handleLine(p) { if(!lineStart) { lineStart = p; showInfo("Bitiş noktas
 function cleanupLines() { lns = lns.filter(l => pts.includes(l.from) && pts.includes(l.to)); }
 function highlightRow(i, scroll) { document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row')); const r = document.getElementById('row-'+i); if(r) { r.classList.add('selected-row'); if(scroll) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
 function setMode(m) { 
-    mode = m; lineStart = null; measurePts = []; areaPts = []; lyrTemp.clearLayers(); hideInfo();
+    mode = m; lineStart = null; measurePts = []; areaPts = []; profilePts = []; lyrTemp.clearLayers(); hideInfo();
     document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active'));
     const btn = document.getElementById('btn-'+ (m.includes('del')?m:m)); if(btn) btn.classList.add('btn-active');
     if(m==='measure') showInfo("📏 CETVEL: Başlangıç noktasına tıkla...");
     if(m==='area') showInfo("📐 ALAN: Köşe noktalarını seç...");
+    if(m==='profile') showInfo("📉 BOYKESİT: Güzergah noktalarına sırasıyla tıkla...");
 }
+function resetMode() { mode = 'idle'; lyrTemp.clearLayers(); hideInfo(); document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active')); }
 function showInfo(msg) { const p = document.getElementById('info-panel'); p.style.display = 'block'; p.innerText = msg; }
 function hideInfo() { document.getElementById('info-panel').style.display = 'none'; }
 function zoomAll() { if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.y,p.x]))).getBounds().pad(0.1)); }
