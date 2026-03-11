@@ -2,60 +2,53 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile CAD Pro v2.2 - Boykesit Modu</title>
+    <title>Mobile CAD Pro - Ultimate Engineering v2.3</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
     <style>
-        :root { --brand: #e67e22; --dark: #2c3e50; --danger: #c0392b; --success: #27ae60; --info: #2980b9; --measure: #f1c40f; --area: #9b59b6; --profile: #8e44ad; }
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #333; overflow: hidden; }
-        #map { flex-grow: 1; cursor: crosshair; background: #1a1a1a; }
-        
-        /* Sidebar */
-        .sidebar { position: absolute; top: 10px; left: 10px; width: 370px; background: rgba(255,255,255,0.98); border-radius: 8px; z-index: 2000; box-shadow: 0 4px 25px rgba(0,0,0,0.6); max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; }
-        
+        :root { --brand: #e67e22; --dark: #1e1e1e; --danger: #c0392b; --success: #27ae60; --info: #2980b9; --measure: #f1c40f; --area: #9b59b6; --profile: #8e44ad; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #000; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        #map { flex: 1; z-index: 1; background: #0c0c0c; cursor: crosshair; }
+
+        /* Sidebar & Menu */
+        .sidebar { position: absolute; top: 10px; left: 10px; width: 340px; background: rgba(255,255,255,0.98); border-radius: 12px; z-index: 2000; box-shadow: 0 10px 30px rgba(0,0,0,0.6); max-height: 85vh; overflow-y: auto; }
         .acc-item { border-bottom: 1px solid #ddd; }
-        .acc-header { background: #f1f2f6; padding: 10px 15px; cursor: pointer; font-weight: 800; font-size: 11px; color: #2f3542; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
-        .acc-header:hover { background: #e2e6ea; }
-        .acc-content { padding: 10px; display: none; background: #fff; }
+        .acc-header { background: #f8f9fa; padding: 12px 15px; cursor: pointer; font-weight: 800; font-size: 11px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+        .acc-content { padding: 12px; display: none; background: #fff; }
         .acc-item.active .acc-content { display: block; }
-        .acc-item.active .acc-header { border-left: 5px solid var(--brand); color: var(--brand); background: #fff; }
+        .acc-item.active .acc-header { color: var(--brand); border-left: 5px solid var(--brand); }
 
-        .btn { width: 100%; padding: 8px; margin: 3px 0; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: 700; font-size: 10px; transition: 0.2s; background: #57606f; display: flex; align-items: center; justify-content: center; gap: 6px; }
-        .btn:hover { filter: brightness(1.15); }
+        /* Bottom Panel */
+        .bottom-acc { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3000; background: #fff; border-top: 4px solid var(--brand); transition: 0.3s; }
+        .bottom-header { background: var(--dark); color: #fff; padding: 10px 20px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; }
+        .bottom-content { height: 0; overflow: auto; transition: 0.3s; scroll-behavior: smooth; }
+        .bottom-acc.open .bottom-content { height: 35vh; }
+
+        /* Tables & Inputs */
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { position: sticky; top: 0; background: #eee; padding: 10px; z-index: 10; border-bottom: 2px solid #ccc; }
+        tr.pt-row { transition: background 0.3s; }
+        tr.pt-row:hover { background: #fff5eb; cursor: pointer; color: var(--brand); }
+        .highlight-row { background: #f1c40f !important; color: #000 !important; font-weight: bold; }
+        td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin: 4px 0; box-sizing: border-box; font-size: 12px; }
+
+        /* Buttons */
+        .btn { width: 100%; padding: 10px; margin: 4px 0; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+        .btn:active { transform: scale(0.96); }
         .btn-active { background: var(--brand) !important; outline: 2px solid #fff; box-shadow: inset 0 0 5px rgba(0,0,0,0.5); }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 
-        label { font-size: 10px; font-weight: 800; color: #7f8c8d; display: block; margin-bottom: 2px; }
-        select, input[type="range"] { width: 100%; margin-bottom: 8px; cursor: pointer; }
-        
-        /* Info Panel */
-        #info-panel { position: absolute; bottom: 27vh; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #00ff00; padding: 10px 20px; border-radius: 10px; font-family: monospace; font-size: 12px; z-index: 3000; display: none; border: 1px solid var(--brand); white-space: pre; text-align: center; }
-        
-        /* Table */
-        #table-wrapper { height: 25vh; background: white; z-index: 2000; overflow: auto; border-top: 5px solid var(--dark); }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-        th { position: sticky; top: 0; background: #ced4da; padding: 10px; z-index: 10; border-bottom: 2px solid #adb5bd; }
-        td { padding: 6px; border-bottom: 1px solid #f1f2f6; text-align: center; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        tr.selected-row { background-color: #fff3e0 !important; font-weight: bold; border-left: 5px solid var(--brand); }
-        
-        .cad-label { background: transparent !important; border: none !important; color: #fff !important; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; text-align: center; margin-top: -5px; }
-        .layer-row { display: flex; justify-content: space-between; align-items: center; padding: 4px; border-bottom: 1px solid #eee; font-size: 11px; }
-
-        /* PROFILE MODAL */
-        #profile-modal {
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 90%; max-width: 800px; background: white; z-index: 4000;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8); border-radius: 8px; padding: 15px;
-            flex-direction: column;
-        }
-        #profile-chart-container { width: 100%; height: 300px; background: #f9f9f9; border: 1px solid #ddd; position: relative; margin-bottom: 10px; }
-        canvas { display: block; width: 100%; height: 100%; }
-        .modal-header { font-weight: bold; font-size: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .close-btn { cursor: pointer; color: red; font-size: 18px; }
+        /* Overlays & Modals */
+        #info-panel { position: absolute; bottom: 25vh; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #00ff00; padding: 10px 20px; border-radius: 10px; font-family: monospace; z-index: 3000; display: none; text-align: center; font-size: 13px; }
+        #page-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; overflow-y: auto; padding: 30px; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; z-index: 5000; border-radius: 12px; padding: 25px; width: 350px; box-shadow: 0 0 100px rgba(0,0,0,0.6); }
+        #profile-chart-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; z-index: 5000; padding: 20px; width: 80%; height: 60vh; border-radius: 10px; box-shadow: 0 0 100px rgba(0,0,0,0.8); flex-direction: column; }
     </style>
 </head>
 <body>
@@ -63,428 +56,604 @@
 <div id="map"></div>
 <div id="info-panel"></div>
 
-<div id="profile-modal">
-    <div class="modal-header">
-        <span>📉 BOYKESİT (PROFİL) ANALİZİ</span>
-        <span class="close-btn" onclick="closeProfile()">✖</span>
-    </div>
-    <div id="profile-chart-container">
-        <canvas id="profileCanvas"></canvas>
-    </div>
-    <div class="grid-2">
-        <button class="btn" style="background:#217346" onclick="exportProfileExcel()">💾 EXCEL OLARAK İNDİR</button>
-        <button class="btn" style="background:#555" onclick="closeProfile()">KAPAT</button>
-    </div>
-</div>
-
 <div class="sidebar">
-    <div style="padding:10px; background:#fff; border-bottom:1px solid #eee;">
-        <div class="grid-2">
-            <button class="btn" style="background:#f39c12; color:#000;" onclick="undo()">⬅️ GERİ AL</button>
-            <button class="btn" style="background:#000;" onclick="zoomAll()">🎯 SIĞDIR</button>
-        </div>
+    <div style="padding:10px; display:flex; gap:5px; background:#fff; border-radius:12px 12px 0 0;">
+        <button class="btn" style="background:#f39c12" onclick="undo()">⬅️ GERİ</button>
+        <button class="btn" style="background:var(--dark)" onclick="zoomAll()">🎯 SIĞDIR</button>
+        <button class="btn" style="background:var(--brand)" onclick="document.getElementById('page-overlay').style.display='block'">📦 KÜBAJ/LOJİSTİK</button>
     </div>
 
     <div class="acc-item active">
-        <div class="acc-header" onclick="toggleAcc(this)">📐 HESAPLAMA & ÇİZİM <span>▼</span></div>
+        <div class="acc-header" onclick="toggleAcc(this)">🧮 HESAP & ANALİZ <span>▼</span></div>
         <div class="acc-content">
             <div class="grid-2">
-                <button id="btn-measure" class="btn" style="background:var(--measure); color:#000;" onclick="setMode('measure')">📏 CETVEL (Mesafe)</button>
-                <button id="btn-area" class="btn" style="background:var(--area);" onclick="setMode('area')">📐 ALAN HESABI</button>
+                <button id="btn-measure" class="btn" style="background:var(--measure); color:#000" onclick="setMode('measure')">📏 MESAFE</button>
+                <button id="btn-area" class="btn" style="background:var(--area)" onclick="setMode('area')">📐 ALAN</button>
             </div>
-             <button id="btn-profile" class="btn" style="background:var(--profile);" onclick="setMode('profile')">📉 BOYKESİT (PROFİL)</button>
-            <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
-            <div class="grid-2">
-                <button id="btn-add" class="btn" onclick="setMode('add')">➕ NOKTA AT</button>
-                <button id="btn-line" class="btn" onclick="setMode('line')">➖ HAT ÇİZ</button>
-            </div>
-            <div class="grid-2">
-                <button id="btn-delPt" class="btn" style="background:var(--danger)" onclick="setMode('delPt')">✖ SİL (Nokta)</button>
-                <button id="btn-delLn" class="btn" style="background:var(--danger)" onclick="setMode('delLn')">✂ SİL (Hat)</button>
-            </div>
+            <button id="btn-profile" class="btn" style="background:var(--profile)" onclick="setMode('profile')">📉 HARİTA BOYKESİTİ (Sağ Tıkla Bitir)</button>
         </div>
     </div>
 
     <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">📂 DOSYA & İÇE/DIŞA AKTAR <span>▼</span></div>
+        <div class="acc-header" onclick="toggleAcc(this)">✏️ CAD ÇİZİM MOTORU <span>▼</span></div>
         <div class="acc-content">
-            <button class="btn" style="background:var(--info)" onclick="document.getElementById('fileIn').click()">📥 DOSYA YÜKLE (NCN/TXT)</button>
-            <input type="file" id="fileIn" hidden onchange="loadFile(this)" accept=".ncn,.txt">
-            <div style="margin-top:5px; font-size:9px; font-weight:bold; color:#777;">DIŞA AKTAR:</div>
+            <div class="grid-2">
+                <button id="btn-add" class="btn" style="background:#4b5563" onclick="setMode('add')">➕ NOKTA</button>
+                <button id="btn-line" class="btn" style="background:#4b5563" onclick="setMode('line')">➖ HAT BAĞLA</button>
+            </div>
+            
+            <label style="font-size:10px; margin-top:8px; display:block; border-top:1px solid #ccc; padding-top:5px;">Gelişmiş Çizim Seçenekleri</label>
             <div class="grid-3">
-                <button class="btn" style="background:#217346" onclick="exportXLS()">XLS</button>
-                <button class="btn" style="background:#e74c3c" onclick="exportDXF()">DXF</button>
-                <button class="btn" style="background:#2980b9" onclick="exportNCN()">NCN</button>
-                <button class="btn" style="background:#666" onclick="exportXYZ()">XYZ</button>
-                <button class="btn" style="background:#3498db" onclick="exportKML()">KML</button>
-                <button class="btn" style="background:#9b59b6" onclick="exportJSON()">JSON</button>
+                <button id="btn-offset" class="btn" style="background:#d35400" onclick="setAdvMode('offset')">⏸ OFFSET/KOPYALA</button>
+                <button id="btn-mirror" class="btn" style="background:#2980b9" onclick="setAdvMode('mirror')">🪞 AYNALA</button>
+                <button id="btn-polar" class="btn" style="background:#8e44ad" onclick="setAdvMode('polar')">📏 UZUNLUK ÇİZ</button>
+            </div>
+            
+            <div id="adv-params" style="display:none; padding:10px; background:#f4f4f4; border-radius:5px; margin-top:5px;">
+                <div id="pnl-offset" style="display:none;">
+                    <p style="font-size:10px; color:#555; margin:5px 0 0;">Uygulamak için önce şekle (nokta/hat), sonra kopyalamak istediğiniz boş konuma tıklayın.</p>
+                </div>
+                <div id="pnl-polar" style="display:none;">
+                    <div class="grid-2">
+                        <div><label>Yön Açısı (°):</label><input type="number" id="adv-angle" value="45"></div>
+                        <div><label>Uzunluk (m):</label><input type="number" id="adv-length" value="10"></div>
+                    </div>
+                    <p style="font-size:10px; color:#555; margin:5px 0 0;">Başlangıç noktasına (⊕) veya haritadaki boş bir yere tıklayın.</p>
+                </div>
+                <div id="pnl-mirror" style="display:none;">
+                    <p style="font-size:10px; color:#555; margin:0;">Aynalamak istediğiniz şekle (hat/nokta) tıklayın, eksen açısı sorulacaktır.</p>
+                </div>
+            </div>
+
+            <label style="font-size:10px; margin-top:8px; display:block; border-top:1px solid #ccc; padding-top:5px;">Geometrik Öğeler (Parametreli)</label>
+            <div class="grid-3">
+                <button class="btn" style="background:#16a085" onclick="setGeoMode('circle')">⭕ ÇEMBER</button>
+                <button class="btn" style="background:#16a085" onclick="setGeoMode('square')">🟦 KARE</button>
+                <button class="btn" style="background:#16a085" onclick="setGeoMode('rect')">▭ DİKDÖRTGEN</button>
+                <button class="btn" style="background:#16a085" onclick="setGeoMode('triangle')">🔺 ÜÇGEN</button>
+                <button class="btn" style="background:#16a085" onclick="setGeoMode('polygon')">⬡ ÇOKGEN</button>
+                <button class="btn" style="background:#16a085" onclick="setGeoMode('cone')">📐 KONİ/HUNİ</button>
+            </div>
+            <div id="geo-params" style="display:none; padding:10px; background:#f4f4f4; border-radius:5px; margin-top:5px;">
+                <div class="grid-2">
+                    <div><label>Ölçü/Yarıçap/Y (m):</label><input type="number" id="geo-p1" value="10"></div>
+                    <div><label>Eğim (%):</label><input type="number" id="geo-slope" value="0"></div>
+                </div>
+                <div id="geo-p2-container" style="display:none; margin-top:5px;">
+                    <label>2. Kenar/Genişlik/X (m):</label><input type="number" id="geo-p2" value="20">
+                </div>
+                <div id="geo-sides-container" style="display:none; margin-top:5px;">
+                    <label>Çokgen Kenar Sayısı:</label><input type="number" id="geo-sides" value="5">
+                </div>
             </div>
         </div>
     </div>
 
     <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">🔗 OTOMATİK BAĞLANTI <span>▼</span></div>
+        <div class="acc-header" onclick="toggleAcc(this)">🏗️ AKILLI BAĞLAMA <span>▼</span></div>
         <div class="acc-content">
-            <button class="btn" style="background:#8e44ad" onclick="autoLink('layer')">🏗️ AYNI TABAKALARI BAĞLA (Min/Max)</button>
-            <button class="btn" style="background:#d35400" onclick="autoLink('near')">📍 EN YAKINLARI BAĞLA (Min/Max)</button>
-            <button class="btn" style="background:#1abc9c" onclick="autoLink('sequence')">🔄 1-2-3 SIRA İLE BAĞLA</button>
+            <button class="btn" style="background:#8e44ad" onclick="autoLink('seq')">🔄 NCN SIRASINA GÖRE BAĞLA</button>
+            <div class="grid-2">
+                <button class="btn" style="background:#1abc9c" onclick="autoLink('near')">📍 EN YAKIN</button>
+                <button class="btn" style="background:#2980b9" onclick="autoLink('layer')">🏗️ TABAKA</button>
+            </div>
         </div>
     </div>
 
     <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">🎨 GÖRÜNÜM & STİL <span>▼</span></div>
+        <div class="acc-header" onclick="toggleAcc(this)">📂 DOSYA & TABAKALAR <span>▼</span></div>
         <div class="acc-content">
+            <button class="btn" style="background:var(--info)" onclick="document.getElementById('fileIn').click()">📥 SİHİRBAZLA İÇE AKTAR (NCN / DXF)</button>
+            <input type="file" id="fileIn" accept=".ncn, .dxf" hidden onchange="openWizard(this)">
+            
+            <label style="font-size:10px; display:block; margin-top:8px;">Tabaka Filtresi:</label>
+            <select id="layerFilter" onchange="render()"><option value="all">Tüm Tabakalar Göster</option></select>
+            
+            <label style="font-size:10px; display:block; margin-top:8px;">Dışa Aktarma Seçenekleri:</label>
             <div class="grid-2">
-                <div><label>Nokta Tipi</label><select id="ptType" onchange="render()"><option value="35">Daire+Çarpı</option><option value="3">Artı (+)</option><option value="4">Çarpı (x)</option><option value="0">Nokta</option></select></div>
-                <div><label>Boyut</label><input type="range" id="ptSize" min="5" max="30" value="14" oninput="render()"></div>
+                <button class="btn" style="background:#217346" onclick="exportXLS()">XLSX</button>
+                <button class="btn" style="background:#c0392b" onclick="exportDXF()">DXF</button>
+                <button class="btn" style="background:#f39c12" onclick="exportKML()">KML (Earth)</button>
+                <button class="btn" style="background:#8e44ad" onclick="exportGeoJSON()">GeoJSON</button>
+                <button class="btn" style="background:#34495e" onclick="exportXYZ()">XYZ Txt</button>
             </div>
-            <div class="grid-2">
-                <div><label>Hat Tipi</label><select id="lineType" onchange="render()"><option value="solid">Düz</option><option value="dash">Kesik</option><option value="dot">Noktalı</option><option value="dashdot">Kesik-Nokta</option></select></div>
-                <div><label>Kalınlık</label><input type="range" id="lineWidth" min="1" max="10" value="2" oninput="render()"></div>
-            </div>
-            <label>Etiketler</label>
-            <select id="labelMode" onchange="render()">
-                <option value="id">Nokta No</option>
-                <option value="z">Kot (Z)</option>
-                <option value="id_z">No + Kot</option>
-                <option value="none">Gizle</option>
-            </select>
         </div>
     </div>
 
-     <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">🏗️ TABAKA YÖNETİMİ <span>▼</span></div>
+    <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">🎨 GÖRÜNÜM STİLLERİ <span>▼</span></div>
         <div class="acc-content">
-            <div id="layer-container" style="max-height:120px; overflow-y:auto;"></div>
+            <div class="grid-2">
+                <div><label>Nokta Tipi</label><select id="ptType" onchange="render()"><option value="⊕">⊕</option><option value="+">+</option><option value="x">x</option></select></div>
+                <div><label>Boyut</label><input type="range" id="ptSize" min="8" max="40" value="14" oninput="render()"></div>
+            </div>
+            <div class="grid-2">
+                <div><label>Hat Tipi</label><select id="lnType" onchange="render()"><option value="solid">Düz</option><option value="dash">Kesik</option></select></div>
+                <div><label>Kalınlık</label><input type="range" id="lnWidth" min="1" max="10" value="2" oninput="render()"></div>
+            </div>
+            <label>Etiket Gösterimi</label>
+            <select id="lblMode" onchange="render()"><option value="id_z">No + Kot</option><option value="id">Sadece No</option><option value="none">Gizle</option></select>
         </div>
     </div>
 </div>
 
-<div id="table-wrapper">
-    <table>
-        <thead><tr><th>NO</th><th>Y (DOĞU/SAĞ)</th><th>X (KUZEY/YUKARI)</th><th>Z</th><th>TABAKA</th></tr></thead>
-        <tbody id="tBody"></tbody>
-    </table>
+<div class="bottom-acc" id="coord-panel">
+    <div class="bottom-header" onclick="document.getElementById('coord-panel').classList.toggle('open')">
+        <span>📍 NOKTA EDİTÖRÜ & KOORDİNAT LİSTESİ</span>
+        <span id="coord-icon">▲</span>
+    </div>
+    <div class="bottom-content" id="bottom-content-area">
+        <table id="pointTable">
+            <thead><tr><th>NO</th><th>Y (DOĞU)</th><th>X (KUZEY)</th><th>Z (KOT)</th><th>KOD/TABAKA</th></tr></thead>
+            <tbody id="tBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="import-wizard" class="modal">
+    <h3>🌐 İçe Aktarma Sihirbazı (NCN/DXF)</h3>
+    <label>Eksen Sıralaması (NCN için):</label>
+    <select id="coord-map">
+        <option value="Y-X">Y: Doğu / X: Kuzey (Türkiye Std.)</option>
+        <option value="X-Y">X: Doğu / Y: Kuzey (Ters)</option>
+        <option value="W-N">W: Batı / N: Kuzey</option>
+    </select>
+    <label>Z (Kot) Aktarımı:</label>
+    <select id="z-opt"><option value="yes">Mevcut İse Aktar</option><option value="no">Yok (Sıfır Ata)</option></select>
+    <button class="btn" style="background:var(--success); margin-top:15px;" id="btn-import-run" onclick="processImport()">SİSTEME AKTAR</button>
+</div>
+
+<div id="pt-edit-modal" class="modal">
+    <h3 style="margin-top:0">📍 Nokta Düzenle</h3>
+    <label>Nokta No:</label><input type="text" id="ed-id">
+    <label>Kot (Z):</label><input type="number" id="ed-z" step="0.001">
+    <label>Tabaka:</label><input type="text" id="ed-lay">
+    <div class="grid-2" style="margin-top:15px;">
+        <button class="btn" style="background:var(--success)" onclick="savePt()">KAYDET</button>
+        <button class="btn" style="background:var(--danger)" onclick="document.getElementById('pt-edit-modal').style.display='none'">İPTAL</button>
+    </div>
+</div>
+
+<div id="profile-chart-container">
+    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <h3>📉 Arazi Kesit Profili</h3>
+        <button class="btn" style="width:auto; background:var(--danger);" onclick="this.parentElement.parentElement.style.display='none'">✖</button>
+    </div>
+    <canvas id="profileCanvas" style="flex:1; border:1px solid #ccc;"></canvas>
+</div>
+
+<div id="page-overlay">
+    <div style="max-width:1000px; margin:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid var(--dark); padding-bottom:15px;">
+            <h2>📊 Güzergah Bazlı Kübaj & Lojistik Planlama</h2>
+            <button class="btn" style="background:var(--danger); width:auto;" onclick="document.getElementById('page-overlay').style.display='none'">✖ KAPAT</button>
+        </div>
+
+        <div class="grid-2" style="margin-top:20px;">
+            <div style="background:#f4f4f4; padding:20px; border-radius:12px;">
+                <h4>🚚 Parametreler & Güzergah Ayarı</h4>
+                <div class="grid-2">
+                    <div><label>Kamyon Hacmi (m³):</label><input type="number" id="k-cap" value="18"></div>
+                    <div><label>Depo / Ödünç Mesafesi (km):</label><input type="number" id="k-dist" value="5.5" step="0.1"></div>
+                </div>
+                <p style="font-size: 11px; color: #555; margin-top: 10px;"><i>* Hassas TIN Hacim Modeli Aktif: Güzergah analizleri 5 metrelik kesit periyotlarıyla otomatik taranacaktır.</i></p>
+            </div>
+            <div style="background:#f4f4f4; padding:20px; border-radius:12px;">
+                <h4>📄 Yüzey Verileri (NCN)</h4>
+                <label>1. Nebati Yüzey (Doğal Zemin):</label><input type="file" onchange="loadKubaFile(this, 'nebati')">
+                <label>2. Kazı Sonrası (Ekskavatör):</label><input type="file" onchange="loadKubaFile(this, 'kazi')">
+                <button class="btn" style="background:var(--success); margin-top:10px; padding:12px;" onclick="calculateRouteVolume()">GÜZERGAH OLUŞTUR & HESAPLA</button>
+            </div>
+        </div>
+
+        <div id="res-area" style="display:none; margin-top:30px;">
+            <div style="display:flex; gap:10px; text-align:center;">
+                <div style="flex:1; background:var(--dark); color:white; padding:15px; border-radius:10px;">Net Yarma: <h2 id="r-cut">0 m³</h2></div>
+                <div style="flex:1; background:var(--danger); color:white; padding:15px; border-radius:10px;">Net Dolgu: <h2 id="r-fill">0 m³</h2></div>
+                <div style="flex:1; background:var(--brand); color:white; padding:15px; border-radius:10px;">Toplam Sefer: <h2 id="r-trip">0</h2></div>
+            </div>
+            <button class="btn" style="background:#2ecc71; width:auto; margin-top:15px;" onclick="exportPDF()">📄 LOJİSTİK RAPORU (PDF)</button>
+            
+            <div style="overflow-x:auto; margin-top:20px;">
+                <table id="kubajTable">
+                    <thead><tr style="background:#eee;"><th>Mesafe (Km+)</th><th>Yarma (m³)</th><th>Dolgu (m³)</th><th>Sefer Sayısı</th><th>Lojistik Hedef</th></tr></thead>
+                    <tbody id="res-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-let pts = []; let lns = []; let history = []; 
-let map, lyrPts, lyrLns, lyrTemp;
-let mode = 'idle'; let lineStart = null; 
-let measurePts = []; let areaPts = []; let profilePts = []; // Profil noktaları eklendi
-let profileData = []; // Profil hesap verileri
-const hiddenLayers = new Set(); const layerColors = {};
+let pts = []; let lns = []; let history = []; let map, lyrPts, lyrLns, lyrTemp;
+let mode = 'idle'; let editTarget = null; let geoMode = 'none'; let lineStart = null;
+let measurePts = []; let profilePts = []; let advSelectedShape = null;
+let currentFileStr = "";
+let k_nebati = []; let k_kazi = [];
+
+// Geometrik bağlama ve mesafe işlemleri için ortak, gerçek uzaklık ölçüm fonksiyonu
+function getTrueDistance(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
 
 function init() {
     map = L.map('map', { crs: L.CRS.Simple, minZoom: -5, zoomControl: false });
-    lyrLns = L.layerGroup().addTo(map); 
-    lyrPts = L.layerGroup().addTo(map); 
-    lyrTemp = L.layerGroup().addTo(map);
+    lyrLns = L.layerGroup().addTo(map); lyrPts = L.layerGroup().addTo(map); lyrTemp = L.layerGroup().addTo(map);
     map.setView([0, 0], 2);
     
     map.on('click', (e) => { 
-        if(mode === 'add') { saveState(); addPoint(e.latlng.lat, e.latlng.lng); }
-        else if(mode === 'measure') addMeasurePt(e.latlng);
-        else if(mode === 'area') addAreaPt(e.latlng);
-    });
-    
-    // Sağ tık ile ölçüm/alan/profil bitirme
-    map.on('contextmenu', (e) => {
-        if(mode === 'measure' || mode === 'area') {
-            resetMode();
-        } else if (mode === 'profile') {
-            finishProfile();
+        if(mode === 'add') { saveState(); addPointBulk([{y: e.latlng.lat, x: e.latlng.lng, z: 0, lay: "MANUEL", src: "manual"}]); }
+        else if(mode === 'geo') drawGeoForm(e.latlng);
+        else if(mode === 'measure') addMeasure(e.latlng);
+        else if(mode === 'area') addArea(e.latlng);
+        else if(mode === 'profile') addProfilePt(e.latlng);
+        else if(mode === 'polar') {
+            saveState();
+            let ang = parseFloat(document.getElementById('adv-angle').value) || 0;
+            let len = parseFloat(document.getElementById('adv-length').value) || 10;
+            let rad = ang * Math.PI / 180;
+            let startPt = { id: (pts.length+1).toString(), x: e.latlng.lng, y: e.latlng.lat, z: 0, lay: "POLAR", src: 'manual' };
+            let nx = startPt.x + len * Math.cos(rad);
+            let ny = startPt.y + len * Math.sin(rad);
+            let endPt = { id: (pts.length+2).toString(), x: nx, y: ny, z: 0, lay: "POLAR", src: 'manual' };
+            pts.push(startPt, endPt); lns.push({ from: startPt, to: endPt });
+            render(); showInfo(`Haritaya tıklandı: ${len}m ve ${ang}° hat çizildi.`); setTimeout(hideInfo, 2000);
         }
+        else if (mode === 'offset' && advSelectedShape) {
+            saveState();
+            let minX = Math.min(...advSelectedShape.pts.map(pt=>pt.x)), maxX = Math.max(...advSelectedShape.pts.map(pt=>pt.x));
+            let minY = Math.min(...advSelectedShape.pts.map(pt=>pt.y)), maxY = Math.max(...advSelectedShape.pts.map(pt=>pt.y));
+            let cx = (minX + maxX)/2; let cy = (minY + maxY)/2;
+            let dx = e.latlng.lng - cx; let dy = e.latlng.lat - cy;
+            
+            let newPtsMap = new Map();
+            advSelectedShape.pts.forEach(pt => {
+                let nPt = { id: (pts.length + newPtsMap.size + 1).toString(), x: pt.x + dx, y: pt.y + dy, z: pt.z, lay: pt.lay, src: 'manual' };
+                newPtsMap.set(pt, nPt); pts.push(nPt);
+            });
+            advSelectedShape.lns.forEach(ln => {
+                lns.push({ from: newPtsMap.get(ln.from), to: newPtsMap.get(ln.to) });
+            });
+            render(); showInfo("Şekil yeni konuma kopyalandı/offsetlendi."); setTimeout(hideInfo, 2000);
+            advSelectedShape = null;
+        }
+    });
+
+    map.on('contextmenu', () => {
+        if(mode === 'profile') finishMapProfile();
+        else if(mode === 'measure' || mode === 'area') resetMode();
     });
 }
 
-function render() {
-    lyrPts.clearLayers(); lyrLns.clearLayers(); 
-    if(mode !== 'measure' && mode !== 'area' && mode !== 'profile') lyrTemp.clearLayers();
-    
-    const tBody = document.getElementById('tBody'); tBody.innerHTML = '';
-    const pType = document.getElementById('ptType').value;
-    const pSize = parseInt(document.getElementById('ptSize').value);
-    const lType = document.getElementById('lineType').value;
-    const lWidth = parseInt(document.getElementById('lineWidth').value);
-    const lblM = document.getElementById('labelMode').value;
-
-    let dashArr = null;
-    if(lType === 'dash') dashArr = "10, 10"; else if(lType === 'dot') dashArr = "2, 8"; else if(lType === 'dashdot') dashArr = "15, 10, 2, 10";
-
-    lns.forEach((l, idx) => {
-        if(hiddenLayers.has(l.layer)) return;
-        const poly = L.polyline([[l.from.y, l.from.x], [l.to.y, l.to.x]], { color: l.color, weight: lWidth, dashArray: dashArr }).addTo(lyrLns);
-        poly.on('click', (e) => { if(mode === 'delLn') { L.DomEvent.stopPropagation(e); saveState(); lns.splice(idx, 1); render(); } });
-    });
-
-    pts.forEach((p, i) => {
-        if(hiddenLayers.has(p.layer)) return;
-        
-        let htmlSym;
-        const col = p.color; const half = pSize/2;
-        if(pType === '35') htmlSym = `<div style="width:${pSize}px; height:${pSize}px; border:2px solid ${col}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${col}; font-weight:bold; font-size:${pSize-4}px;">×</div>`;
-        else if(pType === '3') htmlSym = `<div style="font-size:${pSize+4}px; color:${col}; font-weight:bold; line-height:${pSize}px;">+</div>`;
-        else if(pType === '4') htmlSym = `<div style="font-size:${pSize+2}px; color:${col}; font-weight:bold; line-height:${pSize}px;">×</div>`;
-        else htmlSym = `<div style="width:${half}px; height:${half}px; background:${col}; border:1px solid #fff; border-radius:50%;"></div>`;
-
-        const marker = L.marker([p.y, p.x], {
-            draggable: true,
-            icon: L.divIcon({ html: htmlSym, className: '', iconSize: [pSize, pSize], iconAnchor: [pSize/2, pSize/2] })
-        }).addTo(lyrPts);
-
-        if(lblM !== 'none') {
-            let txt = lblM==='id' ? p.id : lblM==='z' ? p.z.toFixed(2) : `${p.id}\n${p.z.toFixed(2)}`;
-            marker.bindTooltip(txt, { permanent: true, direction: "top", className: "cad-label", offset: [0, -half] });
-        }
-
-        marker.on('click', (e) => {
-            L.DomEvent.stopPropagation(e);
-            if(mode === 'line') handleLine(p);
-            else if(mode === 'measure') addMeasurePt({lat:p.y, lng:p.x});
-            else if(mode === 'area') addAreaPt({lat:p.y, lng:p.x});
-            else if(mode === 'profile') addToProfile(p);
-            else if(mode === 'delPt') { saveState(); pts.splice(i,1); cleanupLines(); render(); }
-            else highlightRow(i, true);
-        });
-
-        marker.on('drag', (e) => {
-            const c = e.target.getLatLng(); p.y=c.lat; p.x=c.lng;
-            document.getElementById('row-'+i).cells[1].innerText = p.y.toFixed(3);
-            document.getElementById('row-'+i).cells[2].innerText = p.x.toFixed(3);
-            lns.forEach(l => { if(l.from===p || l.to===p) render(); });
-        });
-
-        const tr = document.createElement('tr'); tr.id = `row-${i}`;
-        tr.innerHTML = `<td><b>${p.id}</b></td><td>${p.y.toFixed(3)}</td><td>${p.x.toFixed(3)}</td><td>${p.z.toFixed(2)}</td><td style="color:${p.color}">${p.layer}</td>`;
-        tr.onclick = () => { highlightRow(i, false); map.flyTo([p.y, p.x], map.getZoom()); };
-        tBody.appendChild(tr);
-    });
-    updateLayerList();
+function saveState() {
+    if (history.length > 20) history.shift();
+    history.push(JSON.stringify({ pts: pts, lns: lns }));
 }
 
-// --- BOYKESİT / PROFİL MODÜLÜ ---
-function addToProfile(p) {
-    // Aynı nokta üst üste eklenmesin
-    if(profilePts.length > 0 && profilePts[profilePts.length-1] === p) return;
-    
-    profilePts.push(p);
-    
-    // Geçici Çizgi
-    lyrTemp.clearLayers();
-    if(profilePts.length > 1) {
-        const coords = profilePts.map(pt => [pt.y, pt.x]);
-        L.polyline(coords, {color: '#8e44ad', weight: 4}).addTo(lyrTemp);
+function undo() {
+    if (history.length > 0) {
+        let state = JSON.parse(history.pop());
+        pts = state.pts || [];
+        lns = state.lns || [];
+        render(); showInfo("Geri alındı."); setTimeout(hideInfo, 1500);
+    } else { showInfo("Geri alınacak işlem kalmadı."); setTimeout(hideInfo, 1500); }
+}
+
+function openWizard(i) {
+    const r = new FileReader(); 
+    r.onload = (e) => { window.curFile = e.target.result; document.getElementById('import-wizard').style.display='block'; }; 
+    r.readAsText(i.files[0]);
+}
+
+function processImport() {
+    saveState(); document.getElementById('btn-import-run').innerText = "Aktarılıyor...";
+    setTimeout(() => { 
+        const cfg = document.getElementById('coord-map').value;
+        const zOpt = document.getElementById('z-opt').value;
+        const fileObj = document.getElementById('fileIn').files[0];
+        const isDXF = fileObj.name.toLowerCase().endsWith('.dxf');
+        let newPoints = [];
+
+        if (isDXF) {
+            // DXF Ayrıştırma Motoru
+            const lines = window.curFile.split(/\r?\n/);
+            let i = 0;
+            while (i < lines.length) {
+                let val = lines[i].trim();
+                if (val === "POINT") {
+                    let pt = { x: 0, y: 0, z: 0, lay: "DXF_NOKTA", src: 'dxf' };
+                    i++;
+                    while (i < lines.length && lines[i].trim() !== "0") {
+                        let code = lines[i].trim(); let v = lines[i+1] ? lines[i+1].trim() : "";
+                        if (code === "8") pt.lay = v;
+                        else if (code === "10") pt.x = parseFloat(v);
+                        else if (code === "20") pt.y = parseFloat(v);
+                        else if (code === "30" && zOpt === 'yes') pt.z = parseFloat(v);
+                        i += 2;
+                    }
+                    pt.id = (pts.length + newPoints.length + 1).toString();
+                    newPoints.push(pt); 
+                    continue;
+                }
+                i++;
+            }
+        } else {
+            // NCN Ayrıştırma Motoru
+            const lines = window.curFile.split('\n');
+            lines.forEach(l => {
+                let d = l.trim().split(/\s+/); 
+                if(d.length < 2) return;
+                let y = parseFloat(d[1]), x = parseFloat(d[2]);
+                if(isNaN(y) || isNaN(x)) return;
+                let z = 0; if(zOpt === 'yes' && d.length >= 4) z = parseFloat(d[3]) || 0;
+                
+                let layMatch = l.match(/"([^"]+)"/);
+                let lay = layMatch ? layMatch[1] : (d.length > 5 ? d[5].replace(/"/g, '') : (d.length > 4 ? d[4] : "NCN"));
+                let pId = d[0];
+
+                if(cfg === "X-Y") newPoints.push({ y: x, x: y, z: z, lay: lay, id: pId, src: 'ncn' });
+                else if(cfg === "W-N") newPoints.push({ y: y*-1, x: x, z: z, lay: lay, id: pId, src: 'ncn' });
+                else newPoints.push({ y: y, x: x, z: z, lay: lay, id: pId, src: 'ncn' });
+            });
+        }
+
+        addPointBulk(newPoints);
+        document.getElementById('import-wizard').style.display='none'; 
+        document.getElementById('btn-import-run').innerText = "SİSTEME AKTAR";
+        zoomAll();
+    }, 100);
+}
+
+function addPointBulk(pointsArray) {
+    const sel = document.getElementById('layerFilter');
+    let layersAdded = new Set();
+    pointsArray.forEach(p => { pts.push({ id: p.id || (pts.length + 1).toString(), y: p.y, x: p.x, z: p.z, lay: p.lay, src: p.src || 'manual' }); layersAdded.add(p.lay); });
+    layersAdded.forEach(lay => { if(![...sel.options].some(o => o.value === lay)) sel.add(new Option(lay, lay)); });
+    render();
+}
+
+function getConnectedShape(startObj, type='line') {
+    let connectedPts = new Set(); let connectedLns = new Set(); let queue = [];
+    if (type === 'line') { connectedLns.add(startObj); connectedPts.add(startObj.from); connectedPts.add(startObj.to); queue.push(startObj.from, startObj.to); } 
+    else if (type === 'point') { connectedPts.add(startObj); queue.push(startObj); }
+    while(queue.length > 0) {
+        let p = queue.shift();
+        lns.forEach(l => {
+            if (!connectedLns.has(l)) {
+                if (l.from === p) { connectedLns.add(l); if (!connectedPts.has(l.to)) { connectedPts.add(l.to); queue.push(l.to); } } 
+                else if (l.to === p) { connectedLns.add(l); if (!connectedPts.has(l.from)) { connectedPts.add(l.from); queue.push(l.from); } }
+            }
+        });
     }
-    profilePts.forEach(pt => {
-        L.circleMarker([pt.y, pt.x], {radius: 5, color: '#8e44ad', fillColor: '#fff', fillOpacity:1}).addTo(lyrTemp);
-    });
-
-    showInfo(`📉 BOYKESİT: ${profilePts.length} nokta seçildi.\nBitirmek için Sağ Tık...`);
+    return { pts: Array.from(connectedPts), lns: Array.from(connectedLns) };
 }
 
-function finishProfile() {
-    if(profilePts.length < 2) { alert("Boykesit için en az 2 nokta seçmelisiniz."); return; }
-    
-    // HESAPLAMA
-    let totalDist = 0;
-    profileData = [];
-    
-    profilePts.forEach((p, i) => {
-        let dist = 0;
-        if(i > 0) {
-            dist = Math.sqrt(Math.pow(p.x - profilePts[i-1].x, 2) + Math.pow(p.y - profilePts[i-1].y, 2));
-            totalDist += dist;
+function handleShapeSelect(obj, type) {
+    advSelectedShape = getConnectedShape(obj, type);
+    showInfo("Şekil seçildi. " + (mode === 'offset' ? "Şimdi kopyalanacağı konuma (boşluğa) tıklayın." : "Aynalama yapılıyor..."));
+    if (mode === 'mirror') {
+        let angleStr = prompt("Aynalama Ekseni Açısı (Derece, Yatay: 0, Dikey: 90):", "0");
+        if(angleStr !== null) {
+            saveState();
+            let a = parseFloat(angleStr) * Math.PI / 180;
+            let minX = Math.min(...advSelectedShape.pts.map(pt=>pt.x)), maxX = Math.max(...advSelectedShape.pts.map(pt=>pt.x));
+            let minY = Math.min(...advSelectedShape.pts.map(pt=>pt.y)), maxY = Math.max(...advSelectedShape.pts.map(pt=>pt.y));
+            let cx = (minX + maxX)/2; let cy = (minY + maxY)/2;
+            let mirrorPt = (px, py) => {
+                let tx = px - cx, ty = py - cy;
+                let rx = tx*Math.cos(-a) - ty*Math.sin(-a);
+                let ry = tx*Math.sin(-a) + ty*Math.cos(-a);
+                let fx = rx*Math.cos(a) - (-ry)*Math.sin(a);
+                let fy = rx*Math.sin(a) + (-ry)*Math.cos(a);
+                return {x: fx + cx, y: fy + cy};
+            };
+            let newPtsMap = new Map();
+            advSelectedShape.pts.forEach(pt => {
+                let mPt = mirrorPt(pt.x, pt.y);
+                let nPt = { id: (pts.length + newPtsMap.size + 1).toString(), x: mPt.x, y: mPt.y, z: pt.z, lay: pt.lay, src: 'manual' };
+                newPtsMap.set(pt, nPt); pts.push(nPt);
+            });
+            advSelectedShape.lns.forEach(ln => { lns.push({ from: newPtsMap.get(ln.from), to: newPtsMap.get(ln.to) }); });
+            render(); showInfo("Şekil başarıyla aynalandı."); setTimeout(hideInfo, 2000);
         }
-        profileData.push({
-            no: p.id,
-            distPartial: dist,
-            distCum: totalDist,
-            z: p.z
-        });
-    });
+        advSelectedShape = null;
+    }
+}
 
-    drawProfileChart();
-    document.getElementById('profile-modal').style.display = 'flex';
+function addMeasure(ll) { 
+    measurePts.push(ll); 
+    lyrTemp.clearLayers(); 
+    if(measurePts.length>1) L.polyline(measurePts, {color:'#f1c40f', weight:3}).addTo(lyrTemp); 
+    let d=0; 
+    for(let i=0; i<measurePts.length-1; i++) {
+        d += getTrueDistance({x: measurePts[i].lng, y: measurePts[i].lat}, {x: measurePts[i+1].lng, y: measurePts[i+1].lat});
+    }
+    showInfo(`📏 CETVEL: ${d.toFixed(2)} m (Bitirmek için Sağ Tıkla)`); 
+}
+
+function addArea(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts.length>2) { L.polygon(measurePts, {color:'#9b59b6'}).addTo(lyrTemp); let a=0; let j=measurePts.length-1; for(let i=0; i<measurePts.length; i++) { a+=(measurePts[j].lng+measurePts[i].lng)*(measurePts[j].lat-measurePts[i].lat); j=i; } showInfo(`📐 ALAN: ${Math.abs(a/2).toFixed(2)} m² (Bitirmek için Sağ Tıkla)`); } else showInfo(`📐 Alan için en az 3 nokta seçin`); }
+function addProfilePt(ll) { let closest = null; let minD = Infinity; pts.forEach(p => { let d = Math.sqrt(Math.pow(p.y-ll.lat,2)+Math.pow(p.x-ll.lng,2)); if(d<minD) { minD=d; closest=p; } }); if(closest && minD < 20) { profilePts.push(closest); lyrTemp.clearLayers(); L.polyline(profilePts.map(p=>[p.y,p.x]), {color:'purple', weight:4, dashArray:"10,10"}).addTo(lyrTemp); showInfo(`📉 BOYKESİT: ${profilePts.length} nokta (Bitirmek için Sağ Tıkla)`); } }
+
+function finishMapProfile() {
+    if(profilePts.length<2) return;
+    document.getElementById('profile-chart-container').style.display='flex';
+    const ctx = document.getElementById('profileCanvas').getContext('2d');
+    const w = ctx.canvas.width = 600; const h = ctx.canvas.height = 300;
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h);
+    let dist=0; let data = profilePts.map((p,i)=>{ if(i>0) dist+=Math.sqrt(Math.pow(p.x-profilePts[i-1].x,2)+Math.pow(p.y-profilePts[i-1].y,2)); return {d:dist, z:p.z}; });
+    let minZ=Math.min(...data.map(d=>d.z)), maxZ=Math.max(...data.map(d=>d.z)), rZ=(maxZ-minZ)||10;
+    ctx.beginPath(); ctx.strokeStyle="purple"; ctx.lineWidth=3;
+    data.forEach((d,i)=>{ let x = 40 + (d.d/dist)*(w-80); let y = (h-40) - ((d.z-minZ)/rZ)*(h-80); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); ctx.fillStyle="red"; ctx.fillRect(x-3,y-3,6,6); }); ctx.stroke();
     resetMode();
 }
 
-function drawProfileChart() {
-    const canvas = document.getElementById('profileCanvas');
-    const ctx = canvas.getContext('2d');
-    const w = canvas.parentElement.offsetWidth;
-    const h = canvas.parentElement.offsetHeight;
-    canvas.width = w; canvas.height = h;
+function render() {
+    lyrPts.clearLayers(); lyrLns.clearLayers();
+    const tBody = document.getElementById('tBody'); tBody.innerHTML = '';
+    const filter = document.getElementById('layerFilter').value;
+    const pSize = document.getElementById('ptSize').value;
+    const lblM = document.getElementById('lblMode').value;
 
-    // Min/Max bul
-    const maxDist = profileData[profileData.length-1].distCum;
-    let minZ = Infinity, maxZ = -Infinity;
-    profileData.forEach(d => { if(d.z < minZ) minZ=d.z; if(d.z > maxZ) maxZ=d.z; });
-    
-    if(maxZ === minZ) { maxZ += 1; minZ -= 1; } // Düz çizgi hatası önleme
-    const rangeZ = maxZ - minZ;
-    const padding = 40;
-    
-    // Temizle
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
-    
-    // Grid ve Eksenler
-    ctx.beginPath(); ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
-    // Basit grid
-    for(let i=0; i<=5; i++) {
-        let y = h - padding - (i/5)*(h-2*padding);
-        ctx.moveTo(padding, y); ctx.lineTo(w-padding, y);
-    }
-    ctx.stroke();
-
-    // ÇİZİM FONKSİYONLARI
-    const mapX = (d) => padding + (d / maxDist) * (w - 2*padding);
-    const mapY = (z) => h - padding - ((z - minZ) / rangeZ) * (h - 2*padding);
-
-    // Profil Çizgisi
-    ctx.beginPath();
-    ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 3;
-    ctx.moveTo(mapX(profileData[0].distCum), mapY(profileData[0].z));
-    
-    for(let i=1; i<profileData.length; i++) {
-        ctx.lineTo(mapX(profileData[i].distCum), mapY(profileData[i].z));
-    }
-    ctx.stroke();
-
-    // Noktalar ve Yazılar
-    ctx.fillStyle = '#2c3e50'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-    profileData.forEach(d => {
-        const x = mapX(d.distCum);
-        const y = mapY(d.z);
+    lns.forEach((l, idx) => {
+        let pl = L.polyline([[l.from.y, l.from.x], [l.to.y, l.to.x]], { color:'#e67e22', weight:document.getElementById('lnWidth').value, dashArray:document.getElementById('lnType').value==='dash'?"10,10":"" }).addTo(lyrLns);
         
-        ctx.beginPath(); ctx.arc(x, y, 4, 0, 2*Math.PI); ctx.fill();
-        ctx.fillText(`${d.no}`, x, y - 15);
-        ctx.fillText(`Z:${d.z.toFixed(2)}`, x, y - 5);
-        ctx.fillText(`L:${d.distCum.toFixed(1)}`, x, h - 10);
-    });
-    
-    // Eksen Etiketleri
-    ctx.save();
-    ctx.translate(15, h/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center';
-    ctx.fillText("KOT (Z)", 0, 0);
-    ctx.restore();
-    ctx.fillText("MESAFE (metre)", w/2, h-5);
-}
-
-function closeProfile() {
-    document.getElementById('profile-modal').style.display = 'none';
-}
-
-function exportProfileExcel() {
-    if(profileData.length === 0) return;
-    
-    const ws_data = [
-        ["Nokta No", "Ara Mesafe (m)", "Kümülatif Mesafe (m)", "Kot (Z)"]
-    ];
-    
-    profileData.forEach(d => {
-        ws_data.push([d.no, d.distPartial.toFixed(3), d.distCum.toFixed(3), d.z.toFixed(3)]);
+        pl.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            if (mode === 'offset' || mode === 'mirror') { handleShapeSelect(l, 'line'); return; }
+        });
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Boykesit");
-    XLSX.writeFile(wb, "Boykesit_Verileri.xlsx");
-}
+    pts.forEach(p => {
+        if(filter !== 'all' && p.lay !== filter) return;
+        let m = L.marker([p.y, p.x], { draggable: true, icon: L.divIcon({ html: `<b style="color:var(--brand); font-size:${pSize}px;">${document.getElementById('ptType').value}</b>`, className:'' }) }).addTo(lyrPts);
+        if(lblM !== 'none') m.bindTooltip(lblM==='id_z'?`${p.id}<br>${p.z}`:p.id, {permanent:true, className:"cad-label", direction:"top"});
+        m.on('dragstart', (e) => { e.target._origPos = e.target.getLatLng(); });
+        m.on('dragend', (e) => { saveState(); let n = e.target.getLatLng(); p.y = n.lat; p.x = n.lng; render(); });
 
-// --- DİĞER MEVCUT FONKSİYONLAR ---
-function addMeasurePt(latlng) {
-    measurePts.push(latlng);
-    lyrTemp.clearLayers();
-    if(measurePts.length > 1) L.polyline(measurePts, {color: '#f1c40f', weight: 3, dashArray: '10, 10'}).addTo(lyrTemp);
-    measurePts.forEach(pt => L.circleMarker(pt, {radius:3, color:'#f1c40f'}).addTo(lyrTemp));
-    let totalDist = 0;
-    for(let i=0; i<measurePts.length-1; i++) totalDist += map.distance(measurePts[i], measurePts[i+1]);
-    showInfo(`📏 CETVEL\nNokta: ${measurePts.length}\nToplam: ${totalDist.toFixed(3)} m\n(Bitirmek için sağ tık)`);
-}
+        m.on('click', (e) => { 
+            L.DomEvent.stopPropagation(e);
+            if (mode === 'measure') { addMeasure({lat: p.y, lng: p.x}); return; }
+            if (mode === 'area') { addArea({lat: p.y, lng: p.x}); return; }
+            if (mode === 'profile') { addProfilePt({lat: p.y, lng: p.x}); return; }
+            if (mode === 'offset' || mode === 'mirror') { handleShapeSelect(p, 'point'); return; }
+            
+            if (mode === 'polar') {
+                saveState();
+                let ang = parseFloat(document.getElementById('adv-angle').value) || 0;
+                let len = parseFloat(document.getElementById('adv-length').value) || 10;
+                let rad = ang * Math.PI / 180;
+                let nx = p.x + len * Math.cos(rad);
+                let ny = p.y + len * Math.sin(rad);
+                let newPt = { id: (pts.length+1).toString(), x: nx, y: ny, z: p.z, lay: p.lay, src: 'manual' };
+                pts.push(newPt); lns.push({ from: p, to: newPt });
+                render(); showInfo(`Belirtilen mesafe (${len}m) ve açıyla (${ang}°) hat çizildi.`); setTimeout(hideInfo, 2000); return;
+            }
 
-function addAreaPt(latlng) {
-    areaPts.push(latlng);
-    lyrTemp.clearLayers();
-    if(areaPts.length > 2) {
-        L.polygon(areaPts, {color: '#9b59b6', fillColor: '#9b59b6', fillOpacity: 0.3}).addTo(lyrTemp);
-        let area = 0; let j = areaPts.length - 1;
-        for (let i = 0; i < areaPts.length; i++) { area += (areaPts[j].lng + areaPts[i].lng) * (areaPts[j].lat - areaPts[i].lat); j = i; }
-        area = Math.abs(area / 2.0);
-        showInfo(`📐 ALAN\n${area.toFixed(3)} m²\n(${(area/10000).toFixed(4)} Ha)\n(Bitirmek için sağ tık)`);
-    } else {
-        areaPts.forEach(pt => L.circleMarker(pt, {radius:3, color:'#9b59b6'}).addTo(lyrTemp));
-        showInfo(`📐 ALAN: ${areaPts.length} nokta.\n(En az 3 nokta gerekli)`);
-    }
-}
-
-function loadFile(input) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const isYX = confirm("DOSYA SIRALAMASI:\n[TAMAM] -> Y (Sağa), X (Yukarı)\n[İPTAL] -> X (Yukarı), Y (Sağa)");
-        const lines = e.target.result.split('\n'); pts = []; lns = [];
-        lines.forEach(line => {
-            const d = line.trim().split(/\s+/);
-            if(d.length >= 3) {
-                let id = d[0]; let val1 = parseFloat(d[1]); let val2 = parseFloat(d[2]); let z = parseFloat(d[3]) || 0;
-                let lay = "0"; const m = line.match(/"([^"]+)"/); if(m) lay=m[1];
-                if(!layerColors[lay]) layerColors[lay] = '#'+Math.floor(Math.random()*16777215).toString(16);
-                let finalY, finalX; if(isYX) { finalX = val1; finalY = val2; } else { finalY = val1; finalX = val2; }
-                if(!isNaN(finalY) && !isNaN(finalX)) pts.push({ id: id, y: finalY, x: finalX, z: z, layer: lay, color: layerColors[lay] });
+            if(mode==='line') { 
+                if(!lineStart) { lineStart=p; showInfo('Hat için 2. noktayı seçin'); } 
+                else { saveState(); lns.push({from:lineStart, to:p}); lineStart=null; render(); showInfo('Hat çizildi'); setTimeout(hideInfo,1000); } 
+            } else { 
+                if (mode !== 'idle' && mode !== 'add') return;
+                document.querySelectorAll('.pt-row').forEach(r => r.classList.remove('highlight-row'));
+                let targetRow = document.getElementById('row-' + p.id);
+                if(targetRow) { document.getElementById('coord-panel').classList.add('open'); targetRow.classList.add('highlight-row'); targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                editTarget = p.id; document.getElementById('ed-id').value=p.id; document.getElementById('ed-z').value=p.z; document.getElementById('ed-lay').value=p.lay; document.getElementById('pt-edit-modal').style.display='block'; 
             }
         });
-        render(); zoomAll();
-    };
-    reader.readAsText(input.files[0]);
+
+        const row = document.createElement('tr'); row.className = 'pt-row'; row.id = 'row-' + p.id; row.onclick = () => map.setView([p.y, p.x], 18);
+        row.innerHTML = `<td>${p.id}</td><td>${p.y.toFixed(3)}</td><td>${p.x.toFixed(3)}</td><td>${p.z.toFixed(2)}</td><td>${p.lay}</td>`;
+        tBody.appendChild(row);
+    });
 }
 
-function autoLink(type) {
-    saveState();
-    const minD = type==='sequence' ? 0 : parseFloat(prompt("Min Mesafe?", "0.01"));
-    const maxD = type==='sequence' ? 999999 : parseFloat(prompt("Max Mesafe?", "100.0"));
-    if(isNaN(minD) || isNaN(maxD)) return;
-    if (type === 'layer') {
-        const groups = {}; pts.forEach(p => { if(!groups[p.layer]) groups[p.layer]=[]; groups[p.layer].push(p); });
-        for(const k in groups) { const grp = groups[k]; for(let i=0; i<grp.length-1; i++) { const d = getDist(grp[i], grp[i+1]); if(d >= minD && d <= maxD) lns.push({from:grp[i], to:grp[i+1], layer:k, color:grp[i].color}); } }
-    } else if (type === 'near') {
-        pts.forEach((p1, i) => { pts.forEach((p2, j) => { if(i < j) { const d = getDist(p1, p2); if(d >= minD && d <= maxD) lns.push({from:p1, to:p2, layer:p1.layer, color:p1.color}); } }); });
-    } else if (type === 'sequence') {
-         for(let i=0; i<pts.length-1; i++) lns.push({from:pts[i], to:pts[i+1], layer:pts[i].layer, color:pts[i].color});
+function autoLink(t) {
+    saveState(); 
+    let maxLimit = 999999, minLimit = 0;
+    if(t === 'near' || t === 'layer') {
+        maxLimit = parseFloat(prompt("Maksimum Bağlama Mesafesi (m)?", 50)) || 999999;
+        minLimit = parseFloat(prompt("Minimum Bağlama Mesafesi (m)? (Sınır yoksa 0 girin)", 0)) || 0;
+    }
+    
+    if(t==='seq') { 
+        for(let i=0; i<pts.length-1; i++) lns.push({from:pts[i], to:pts[i+1]}); 
+    }
+    else if(t==='layer') { 
+        let layers = [...new Set(pts.map(p => p.lay))]; 
+        layers.forEach(lay => { 
+            let layerPts = pts.filter(p => p.lay === lay); 
+            if(layerPts.length > 1) { 
+                for(let i=0; i<layerPts.length - 1; i++) { 
+                    let d = getTrueDistance(layerPts[i], layerPts[i+1]);
+                    if(d >= minLimit && d <= maxLimit) { lns.push({from: layerPts[i], to: layerPts[i+1]}); }
+                } 
+                let dLast = getTrueDistance(layerPts[layerPts.length - 1], layerPts[0]);
+                if (layerPts[0].src === 'manual' && dLast >= minLimit && dLast <= maxLimit) { 
+                    lns.push({from: layerPts[layerPts.length - 1], to: layerPts[0]}); 
+                } 
+            } 
+        }); 
+    }
+    else { 
+        pts.forEach(p => { 
+            let n=null, minD = Infinity; 
+            pts.forEach(p2 => { 
+                if(p===p2) return; 
+                let d = getTrueDistance(p, p2); 
+                if(d < minD && d >= minLimit && d <= maxLimit) { minD = d; n = p2; } 
+            }); 
+            if(n) lns.push({from:p,to:n}); 
+        }); 
     }
     render();
 }
 
-function getDist(p1, p2) { return Math.sqrt((p1.x-p2.x)**2 + (p1.y-p2.y)**2); }
-function addPoint(lat, lng) { pts.push({ id: "P"+(pts.length+1), y: lat, x: lng, z: 0, layer: "MANUEL", color: "#e67e22" }); render(); }
-function handleLine(p) { if(!lineStart) { lineStart = p; showInfo("Bitiş noktası seçin..."); } else { saveState(); lns.push({ from: lineStart, to: p, layer: "HAT", color: "#fff" }); lineStart = null; hideInfo(); render(); } }
-function cleanupLines() { lns = lns.filter(l => pts.includes(l.from) && pts.includes(l.to)); }
-function highlightRow(i, scroll) { document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row')); const r = document.getElementById('row-'+i); if(r) { r.classList.add('selected-row'); if(scroll) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
-function setMode(m) { 
-    mode = m; lineStart = null; measurePts = []; areaPts = []; profilePts = []; lyrTemp.clearLayers(); hideInfo();
-    document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active'));
-    const btn = document.getElementById('btn-'+ (m.includes('del')?m:m)); if(btn) btn.classList.add('btn-active');
-    if(m==='measure') showInfo("📏 CETVEL: Başlangıç noktasına tıkla...");
-    if(m==='area') showInfo("📐 ALAN: Köşe noktalarını seç...");
-    if(m==='profile') showInfo("📉 BOYKESİT: Güzergah noktalarına sırasıyla tıkla...");
+function drawGeoForm(ll) {
+    saveState(); let s1 = parseFloat(document.getElementById('geo-p1').value) || 10; let s2 = parseFloat(document.getElementById('geo-p2').value) || 20; let slope = parseFloat(document.getElementById('geo-slope').value)/100; let newPts = [];
+    if(geoMode==='circle') for(let i=0; i<360; i+=30) newPts.push({y: ll.lat+s1*Math.sin(i*Math.PI/180), x: ll.lng+s1*Math.cos(i*Math.PI/180), z: s1*slope, lay: "GEOMETRİ", src: "manual"});
+    else if(geoMode==='square') { let d=s1/2; [[1,-1],[1,1],[-1,1],[-1,-1]].forEach(c => newPts.push({y: ll.lat+d*c[0], x: ll.lng+d*c[1], z: 0, lay: "GEOMETRİ", src: "manual"})); }
+    else if(geoMode==='rect') { let dy=s1/2, dx=s2/2; [[1,-1],[1,1],[-1,1],[-1,-1]].forEach(c => newPts.push({y: ll.lat+dy*c[0], x: ll.lng+dx*c[1], z: 0, lay: "GEOMETRİ", src: "manual"})); }
+    else if(geoMode==='triangle') { for(let i=0; i<3; i++) newPts.push({y: ll.lat+s1*Math.sin(i*2*Math.PI/3), x: ll.lng+s1*Math.cos(i*2*Math.PI/3), z: 0, lay: "GEOMETRİ", src: "manual"}); }
+    else if(geoMode==='polygon') { let sides = parseInt(document.getElementById('geo-sides').value)||5; for(let i=0; i<sides; i++) newPts.push({y: ll.lat+s1*Math.sin(i*2*Math.PI/sides), x: ll.lng+s1*Math.cos(i*2*Math.PI/sides), z: 0, lay: "GEOMETRİ", src: "manual"}); }
+    else if(geoMode==='cone') { newPts.push({y: ll.lat, x: ll.lng, z: s1, lay: "TEPE", src: "manual"}); for(let i=0; i<360; i+=90) newPts.push({y: ll.lat+s1*Math.sin(i*Math.PI/180), x: ll.lng+s1*Math.cos(i*Math.PI/180), z: 0, lay: "TABAN", src: "manual"}); }
+    addPointBulk(newPts);
+    if(newPts.length > 1) {
+        let addedPts = pts.slice(-newPts.length);
+        if(geoMode === 'cone') { let tip = addedPts[0]; for(let i=1; i<addedPts.length; i++) { lns.push({from: tip, to: addedPts[i]}); if(i < addedPts.length - 1) lns.push({from: addedPts[i], to: addedPts[i+1]}); else lns.push({from: addedPts[i], to: addedPts[1]}); } } 
+        else { for(let i=0; i < addedPts.length - 1; i++) lns.push({from: addedPts[i], to: addedPts[i+1]}); lns.push({from: addedPts[addedPts.length - 1], to: addedPts[0]}); }
+    } render();
 }
-function resetMode() { mode = 'idle'; lyrTemp.clearLayers(); hideInfo(); document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active')); }
-function showInfo(msg) { const p = document.getElementById('info-panel'); p.style.display = 'block'; p.innerText = msg; }
-function hideInfo() { document.getElementById('info-panel').style.display = 'none'; }
-function zoomAll() { if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.y,p.x]))).getBounds().pad(0.1)); }
-function toggleAcc(el) { el.parentElement.classList.toggle('active'); }
-function saveState() { if(history.length > 20) history.shift(); history.push(JSON.stringify({ pts, lns: lns.map(l => ({ fi: pts.indexOf(l.from), ti: pts.indexOf(l.to), la: l.layer, co: l.color })) })); }
-function undo() { if(!history.length) return; const state = JSON.parse(history.pop()); pts = state.pts; lns = state.lns.map(l => ({ from: pts[l.fi], to: pts[l.ti], layer: l.la, color: l.co })); render(); }
-function updateLayerList() { const cont = document.getElementById('layer-container'); cont.innerHTML = ''; [...new Set(pts.map(p => p.layer))].forEach(l => { const div = document.createElement('div'); div.className = 'layer-row'; const col = pts.find(p=>p.layer===l)?.color || '#fff'; div.innerHTML = `<span style="color:${col}">● ${l}</span> <button onclick="toggleL('${l}')">${hiddenLayers.has(l)?'GÖSTER':'GİZLE'}</button>`; cont.appendChild(div); }); }
-function toggleL(l) { hiddenLayers.has(l) ? hiddenLayers.delete(l) : hiddenLayers.add(l); render(); }
 
-function exportDXF() { let c = "0\nSECTION\n2\nENTITIES\n"; pts.forEach(p => c += `0\nPOINT\n8\n${p.layer}\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`); lns.forEach(l => c += `0\nLINE\n8\n${l.layer}\n10\n${l.from.x}\n20\n${l.from.y}\n30\n${l.from.z}\n11\n${l.to.x}\n21\n${l.to.y}\n31\n${l.to.z}\n`); c += "0\nENDSEC\n0\nEOF"; download(c, "proje.dxf"); }
-function exportNCN() { download(pts.map(p => `${p.id} ${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)} 0 "${p.layer}"`).join('\n'), "proje.ncn"); }
+// AutoCAD Uyumlu DXF Dışa Aktarımı
+function exportDXF() { 
+    let d = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n"; 
+    d += "0\nSECTION\n2\nENTITIES\n"; 
+    
+    pts.forEach(p => { 
+        d += `0\nPOINT\n8\n${p.lay || '0'}\n10\n${p.x.toFixed(4)}\n20\n${p.y.toFixed(4)}\n30\n${(p.z||0).toFixed(4)}\n`; 
+    }); 
+    
+    lns.forEach(l => { 
+        d += `0\nLINE\n8\n${l.from.lay || '0'}\n10\n${l.from.x.toFixed(4)}\n20\n${l.from.y.toFixed(4)}\n30\n${(l.from.z||0).toFixed(4)}\n11\n${l.to.x.toFixed(4)}\n21\n${l.to.y.toFixed(4)}\n31\n${(l.to.z||0).toFixed(4)}\n`; 
+    }); 
+    
+    d += "0\nENDSEC\n0\nEOF\n"; 
+    download(d, "proje.dxf"); 
+}
+
+function exportXLS() { let ws = XLSX.utils.json_to_sheet(pts.map(p=>({NO:p.id, Y:p.y, X:p.x, Z:p.z, TABAKA:p.lay}))); let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Noktalar"); XLSX.writeFile(wb, "proje.xlsx"); }
 function exportXYZ() { download(pts.map(p => `${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)}`).join('\n'), "proje.xyz"); }
-function exportKML() { let k=`<?xml version="1.0"?><kml><Document>`; pts.forEach(p=>k+=`<Placemark><name>${p.id}</name><Point><coordinates>${p.x},${p.y},${p.z}</coordinates></Point></Placemark>`); k+=`</Document></kml>`; download(k,"proje.kml"); }
-function exportJSON() { download(JSON.stringify(pts,null,2),"proje.json"); }
-function exportXLS() { const ws=XLSX.utils.json_to_sheet(pts.map(p=>({No:p.id, Y:p.y, X:p.x, Z:p.z, Tabaka:p.layer}))); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Data"); XLSX.writeFile(wb,"proje.xlsx"); }
-function download(c,n) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c])); a.download=n; a.click(); }
+function exportKML() { let kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>`; pts.forEach(p=>kml+=`<Placemark><name>${p.id}</name><Point><coordinates>${p.y},${p.x},${p.z}</coordinates></Point></Placemark>`); kml+=`</Document></kml>`; download(kml,"proje.kml"); }
+function exportGeoJSON() { let geojson = { type: "FeatureCollection", features: pts.map(p => ({ type: "Feature", properties: { id: p.id, z: p.z, layer: p.lay }, geometry: { type: "Point", coordinates: [p.y, p.x] } })) }; download(JSON.stringify(geojson, null, 2), "proje.geojson"); }
+function exportPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Guzergah Kubaj Raporu", 14, 15); doc.autoTable({ html: '#kubajTable', startY: 25 }); doc.save("Lojistik_Raporu.pdf"); }
+function download(c, n) { let a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c])); a.download = n; a.click(); }
+function savePt() { saveState(); let p = pts.find(x => x.id == editTarget); if(p) { p.id = document.getElementById('ed-id').value; p.z = parseFloat(document.getElementById('ed-z').value); p.lay = document.getElementById('ed-lay').value; render(); } document.getElementById('pt-edit-modal').style.display='none'; }
+
+function setMode(m) { 
+    mode = m; measurePts=[]; profilePts=[]; lyrTemp.clearLayers(); lineStart = null; advSelectedShape = null;
+    document.querySelectorAll('.btn').forEach(b=>b.classList.remove('btn-active')); 
+    if(m!=='idle') document.getElementById('btn-'+(m.includes('geo')?'':m))?.classList.add('btn-active'); 
+    hideInfo();
+    if (!['offset', 'polar', 'mirror'].includes(m)) {
+        let adv = document.getElementById('adv-params'); if(adv) adv.style.display = 'none';
+    }
+}
+
+function setAdvMode(m) {
+    setMode(m); document.getElementById('adv-params').style.display = 'block';
+    document.getElementById('pnl-offset').style.display = m === 'offset' ? 'block' : 'none';
+    document.getElementById('pnl-polar').style.display = m === 'polar' ? 'block' : 'none';
+    document.getElementById('pnl-mirror').style.display = m === 'mirror' ? 'block' : 'none';
+    if (m === 'polar') showInfo("Önce başlangıç noktasına tıklayın veya haritaya dokunun.");
+    else if (m === 'offset' || m === 'mirror') showInfo("İşlem için haritadaki bir şekle tıklayın.");
+}
+
+function setGeoMode(m) { geoMode=m; setMode('geo'); document.getElementById('geo-params').style.display='block'; document.getElementById('geo-sides-container').style.display = m==='polygon' ? 'block' : 'none'; document.getElementById('geo-p2-container').style.display = m==='rect' ? 'block' : 'none'; showInfo("Merkeze Tıklayın"); }
+function resetMode() { mode='idle'; lyrTemp.clearLayers(); hideInfo(); advSelectedShape=null; document.querySelectorAll('.btn').forEach(b=>b.classList.remove('btn-active')); document.getElementById('geo-params').style.display='none'; document.getElementById('adv-params').style.display='none'; }
+function showInfo(t) { let p=document.getElementById('info-panel'); p.innerText=t; p.style.display='block'; }
+function hideInfo() { document.getElementById('info-panel').style.display='none'; }
+function toggleAcc(el) { el.parentElement.classList.toggle('active'); }
+function zoomAll() { if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.y,p.x]))).getBounds()); }
 
 init();
 </script>
