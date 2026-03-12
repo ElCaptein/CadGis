@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile CAD Pro v2.3</title>
+    <title>Mobile CAD Pro - Ultimate Engineering v2.2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -236,7 +236,7 @@
                     <div><label>Kamyon Hacmi (m³):</label><input type="number" id="k-cap" value="18"></div>
                     <div><label>Depo / Ödünç Mesafesi (km):</label><input type="number" id="k-dist" value="5.5" step="0.1"></div>
                 </div>
-                <p style="font-size: 11px; color: #555; margin-top: 10px;"><i>* Hassas TIN Hacim Modeli Aktif: Güzergah analizleri 5 metrelik kesit periyotlarıyla otomatik taranacaktır.</i></p>
+                <p style="font-size: 11px; color: #555; margin-top: 10px;"><i>* Hassas TIN Hacim Modeli Aktif: Güzergah analizleri 5 metrelik kesit periyotlarıyla otomatik taranacaktır. Sanal üçgen ağları (mesh) çakışmaları engellenmiştir.</i></p>
             </div>
             <div style="background:#f4f4f4; padding:20px; border-radius:12px;">
                 <h4>📄 Yüzey Verileri (NCN)</h4>
@@ -263,6 +263,7 @@
         </div>
     </div>
 </div>
+
 
 <script>
 let pts = []; let lns = []; let history = []; let map, lyrPts, lyrLns, lyrTemp;
@@ -459,6 +460,84 @@ function handleShapeSelect(obj, type) {
         advSelectedShape = null;
     }
 }
+
+// --- KÜBAJ VE YÜZEY DOSYASI YÜKLEME FONKSİYONLARI ---
+function loadKubaFile(input, type) {
+    let r = new FileReader(); r.onload = (e) => {
+        let data = e.target.result.split('\n').map(l => {
+            let d = l.trim().split(/\s+/);
+            return d.length >= 3 ? { y: parseFloat(d[1]), x: parseFloat(d[2]), z: parseFloat(d[3]||0) } : null;
+        }).filter(v => v);
+        if(type === 'nebati') k_nebati = data; else k_kazi = data;
+        alert(`${type.toUpperCase()} verisi: ${data.length} nokta yüklendi.`);
+    }; r.readAsText(input.files[0]);
+}
+
+function calculateRouteVolume() {
+    if(k_nebati.length === 0 || k_kazi.length === 0) return alert("Lütfen iki yüzey dosyasını da yükleyin!");
+
+    const interval = 5; 
+    const cap = parseFloat(document.getElementById('k-cap').value) || 18;
+    const dist = parseFloat(document.getElementById('k-dist').value) || 5;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    [...k_nebati, ...k_kazi].forEach(p => {
+        if(p.x < minX) minX = p.x; if(p.x > maxX) maxX = p.x;
+        if(p.y < minY) minY = p.y; if(p.y > maxY) maxY = p.y;
+    });
+
+    if(minX === Infinity) return alert("Geçerli veri yok!");
+
+    let totalCut = 0, totalFill = 0; let tableHtml = "";
+
+    const getZ_IDW = (x, y, dataPoints) => {
+        let num = 0, den = 0, count = 0;
+        for(let i=0; i<dataPoints.length; i++) {
+            let p = dataPoints[i];
+            let d2 = (p.x - x)**2 + (p.y - y)**2;
+            if(d2 < 0.01) return p.z;
+            if(d2 < 900) { let w = 1.0 / d2; num += p.z * w; den += w; count++; }
+        }
+        return count > 0 ? num / den : null;
+    };
+
+    for(let currentX = Math.floor(minX); currentX <= Math.ceil(maxX); currentX += interval) {
+        let sectionCut = 0; let sectionFill = 0; let validCells = 0;
+
+        for(let dx = 0; dx < interval; dx++) {
+            let calcX = currentX + dx;
+            if(calcX > maxX) continue;
+
+            for(let calcY = Math.floor(minY); calcY <= Math.ceil(maxY); calcY += 1) {
+                let zNebati = getZ_IDW(calcX, calcY, k_nebati);
+                let zKazi = getZ_IDW(calcX, calcY, k_kazi);
+                
+                if(zNebati !== null && zKazi !== null) {
+                    let diff = zNebati - zKazi; 
+                    if(diff > 0.05) sectionCut += diff * 1.0; 
+                    else if(diff < -0.05) sectionFill += Math.abs(diff) * 1.0;
+                    validCells++;
+                }
+            }
+        }
+
+        if(validCells === 0) continue; 
+        let trips = Math.ceil((sectionCut + sectionFill) / cap);
+        let kmStr = "0+" + currentX.toString().padStart(3, '0');
+
+        if(sectionCut > 0 || sectionFill > 0) {
+            totalCut += sectionCut; totalFill += sectionFill;
+            tableHtml += `<tr><td>${kmStr}</td><td style="color:green; font-weight:bold;">${sectionCut.toFixed(2)}</td><td style="color:red; font-weight:bold;">${sectionFill.toFixed(2)}</td><td>${trips}</td><td>${dist}km ${sectionCut > sectionFill ? '→ DEPO' : '← ÖDÜNÇ'}</td></tr>`;
+        }
+    }
+
+    document.getElementById('r-cut').innerText = totalCut.toFixed(2) + " m³";
+    document.getElementById('r-fill').innerText = totalFill.toFixed(2) + " m³";
+    document.getElementById('r-trip').innerText = Math.ceil((totalCut + totalFill) / cap);
+    document.getElementById('res-body').innerHTML = tableHtml;
+    document.getElementById('res-area').style.display = 'block';
+}
+// --------------------------------------------------------
 
 function addMeasure(ll) { 
     measurePts.push(ll); 
@@ -659,4 +738,3 @@ init();
 </script>
 </body>
 </html>
-
