@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile CAD Pro v11.1 - Ultimate Master</title>
+    <title>Mobile CAD Pro v11.0 - Ultimate Master</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -52,18 +52,6 @@
         #page-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; overflow-y: auto; padding: 30px; }
         .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; z-index: 5000; border-radius: 12px; padding: 25px; width: 350px; box-shadow: 0 0 100px rgba(0,0,0,0.6); }
         #profile-chart-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; z-index: 5000; padding: 20px; width: 80%; height: 60vh; border-radius: 10px; box-shadow: 0 0 100px rgba(0,0,0,0.8); flex-direction: column; }
-
-        /* Özel Tooltip (Etiket) Stili */
-        .cad-tooltip {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            color: #fff !important;
-            font-weight: bold;
-            font-size: 11px;
-            font-family: 'Segoe UI', sans-serif;
-            text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
-        }
     </style>
 </head>
 <body>
@@ -173,7 +161,7 @@
         <div class="acc-header" onclick="toggleAcc(this)">🎨 GÖRÜNÜM STİLLERİ <span>▼</span></div>
         <div class="acc-content">
             <div class="grid-2">
-                <div><label>Nokta Tipi</label><select id="ptType" onchange="render()"><option value="⊕">⊕</option><option value="+">+</option><option value="x">x</option><option value="o">Daire (o)</option></select></div>
+                <div><label>Nokta Tipi</label><select id="ptType" onchange="render()"><option value="⊕">⊕</option><option value="+">+</option><option value="x">x</option></select></div>
                 <div><label>Boyut</label><input type="range" id="ptSize" min="8" max="40" value="14" oninput="render()"></div>
             </div>
             <div class="grid-2">
@@ -355,7 +343,7 @@ function init() {
     });
 
     map.on('click', (e) => {
-        let pos = snappedPt ? { lat: snappedPt.y, lng: snappedPt.x } : { lat: e.latlng.lat, lng: e.latlng.lng };
+        let pos = snappedPt ? { lat: snappedPt.y, lng: snappedPt.x } : e.latlng;
 
         if (mode === 'add') { saveState(); addPointBulk([{id:(pts.length+1).toString(), y:pos.lat, x:pos.lng, z:0, lay:"MANUEL"}]); }
         else if (mode === 'move') {
@@ -497,14 +485,8 @@ function render() {
     let lblMode = document.getElementById('lblMode').value;
     let filter = document.getElementById('layerFilter').value;
 
-    // Hatları Çiz
     lns.forEach((l, lIdx) => {
-        let line = L.polyline([[l.from.y, l.from.x], [l.to.y, l.to.x]], { 
-            color: '#e67e22', 
-            weight: lWidth, 
-            dashArray: lType === 'dash' ? '10, 10' : null 
-        }).addTo(lyrLns);
-        
+        let line = L.polyline([[l.from.y, l.from.x], [l.to.y, l.to.x]], { color: '#e67e22', weight: lWidth, dashArray: lType==='dash'?'10,10':'' }).addTo(lyrLns);
         line.on('click', (e) => { 
             L.DomEvent.stopPropagation(e); 
             if(mode==='offset' || mode==='mirror') handleShapeSelect(l, 'line'); 
@@ -512,34 +494,18 @@ function render() {
         });
     });
 
-    // Noktaları Çiz
+    let useDivIcon = pts.length < 2000;
     let count = 0;
     pts.forEach((p, idx) => {
         if(filter !== 'all' && p.lay !== filter) return;
-        
         let m;
-        if(pType === 'o') {
-            m = L.circleMarker([p.y, p.x], { radius: pSize/3, fillColor: "#e67e22", color: "#fff", weight: 1, fillOpacity: 1 }).addTo(lyrPts);
+        if(useDivIcon) {
+            m = L.marker([p.y, p.x], { icon: L.divIcon({ html: `<b style="color:var(--brand); font-size:${pSize}px; margin-left:-${pSize/2}px; margin-top:-${pSize/2}px;">${pType}</b>`, className:'' }) }).addTo(lyrPts);
         } else {
-            m = L.marker([p.y, p.x], { 
-                icon: L.divIcon({ 
-                    html: `<div style="color:var(--brand); font-size:${pSize}px; font-weight:bold; line-height:${pSize}px; text-align:center;">${pType}</div>`, 
-                    className: '',
-                    iconSize: [pSize, pSize],
-                    iconAnchor: [pSize/2, pSize/2]
-                }) 
-            }).addTo(lyrPts);
+            m = L.circleMarker([p.y, p.x], { radius: pSize/3, fillColor: "#e67e22", color: "#fff", weight: 1, fillOpacity: 1 }).addTo(lyrPts);
         }
 
-        // Etiket Ekleme (Tooltip)
-        if(lblMode !== 'none') {
-            m.bindTooltip(lblMode === 'id_z' ? `${p.id}<br>Kot: ${p.z}` : String(p.id), {
-                permanent: true, 
-                direction: 'top',
-                className: 'cad-tooltip',
-                offset: [0, -(pSize/2)]
-            });
-        }
+        if(lblMode !== 'none' && pts.length < 3000) m.bindTooltip(lblMode==='id_z' ? `${p.id}<br>${p.z}` : p.id, {permanent: true, direction: 'top'});
         
         m.on('click', (e) => {
             L.DomEvent.stopPropagation(e);
@@ -556,7 +522,6 @@ function render() {
             if(mode === 'idle') openEdit(idx);
         });
 
-        // Tabloyu sınırla (performans için)
         if(count < 200) {
             let row = `<tr class="pt-row" onclick="focusPt(${p.y},${p.x})"><td>${p.id}</td><td>${p.y.toFixed(3)}</td><td>${p.x.toFixed(3)}</td><td>${p.z.toFixed(2)}</td><td>${p.lay}</td>
             <td><button onclick="openEdit(${idx}); event.stopPropagation();" style="font-size:10px;">✏️</button></td></tr>`;
@@ -564,7 +529,6 @@ function render() {
         }
         count++;
     });
-    
     if(count > 200) tBody.insertAdjacentHTML('beforeend', `<tr><td colspan="6" style="color:red">... ${count-200} nokta daha var (Arama yapın) ...</td></tr>`);
 }
 
@@ -603,6 +567,7 @@ function savePt() {
         p.x = parseFloat(document.getElementById('ed-x').value); 
         p.z = parseFloat(document.getElementById('ed-z').value); 
         
+        // Yeni tabaka kontrolü ve ekleme
         let newLay = document.getElementById('ed-lay').value;
         p.lay = newLay; 
         
@@ -612,6 +577,7 @@ function savePt() {
             showInfo(`Yeni Tabaka Oluşturuldu: ${newLay}`);
             setTimeout(hideInfo, 2000);
         }
+        
         render(); 
     }
     document.getElementById('pt-edit-modal').style.display='none';
@@ -663,41 +629,8 @@ function handleSnapping(ll) {
     if(snappedPt) { let c = map.latLngToContainerPoint([snappedPt.y, snappedPt.x]); sc.style.display='block'; sc.style.left=c.x+'px'; sc.style.top=c.y+'px'; } else sc.style.display='none';
 }
 
-function addMeasure(pos) { 
-    measurePts.push([pos.lat, pos.lng]); 
-    lyrTemp.clearLayers(); 
-    
-    if(measurePts.length > 1) { 
-        L.polyline(measurePts, {color:'yellow', weight:3}).addTo(lyrTemp); 
-        let d = 0; 
-        for(let i=0; i<measurePts.length-1; i++) {
-            d += Math.hypot(measurePts[i][1] - measurePts[i+1][1], measurePts[i][0] - measurePts[i+1][0]);
-        }
-        showInfo(`📏 MESAFE: ${d.toFixed(2)} m (Sağ tıkla bitir)`); 
-    } else {
-        showInfo("📍 Başlangıç noktası seçildi. 2. noktaya tıklayın...");
-    }
-}
-
-function addArea(pos) { 
-    measurePts.push([pos.lat, pos.lng]); 
-    lyrTemp.clearLayers(); 
-    
-    if(measurePts.length > 2) { 
-        L.polygon(measurePts, {color:'purple'}).addTo(lyrTemp); 
-        let a = 0, j = measurePts.length-1; 
-        for(let i=0; i<measurePts.length; i++) { 
-            a += (measurePts[j][1] + measurePts[i][1]) * (measurePts[j][0] - measurePts[i][0]); 
-            j = i; 
-        } 
-        showInfo(`📐 ALAN: ${Math.abs(a/2).toFixed(2)} m² (Sağ tıkla bitir)`); 
-    } else if(measurePts.length === 2) {
-        L.polyline(measurePts, {color:'purple', dashArray:'5,5'}).addTo(lyrTemp);
-        showInfo("📐 ALAN: 3. noktayı seçin...");
-    } else {
-        showInfo("📍 ALAN: Başlangıç noktası seçildi...");
-    }
-}
+function addMeasure(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts.length>1) L.polyline(measurePts, {color:'yellow', weight:3}).addTo(lyrTemp); let d=0; for(let i=0;i<measurePts.length-1;i++) d+=getTrueDistance({x:measurePts[i].lng, y:measurePts[i].lat}, {x:measurePts[i+1].lng, y:measurePts[i+1].lat}); showInfo(`📏 MESAFE: ${d.toFixed(2)}m (Sağ tıkla bitir)`); }
+function addArea(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts.length>2) { L.polygon(measurePts, {color:'purple'}).addTo(lyrTemp); let a=0, j=measurePts.length-1; for(let i=0;i<measurePts.length;i++) { a+=(measurePts[j].lng+measurePts[i].lng)*(measurePts[j].lat-measurePts[i].lat); j=i; } showInfo(`📐 ALAN: ${Math.abs(a/2).toFixed(2)} m²`); } }
 
 function drawTempProfile() { lyrTemp.clearLayers(); if(profilePts.length>1) L.polyline(profilePts.map(p=>[p.y, p.x]), {color:'cyan', weight:2, dashArray:'5,5'}).addTo(lyrTemp); showInfo(`📉 Profil: ${profilePts.length} nokta eklendi.`); }
 function finishMapProfile() {
@@ -796,7 +729,9 @@ function setMode(m) {
     document.getElementById('adv-params').style.display='none'; 
     document.getElementById('geo-params').style.display='none'; 
 
+    // Toplu seçim esnasında ekranı kaydırmamak için sürüklemeyi kapatıyoruz
     if(m === 'delete') { map.dragging.disable(); } else { map.dragging.enable(); }
+
     if(m!=='idle') showInfo(m.toUpperCase() + (m==='delete' ? ": OBJEYE TIKLAYIN VEYA KUTU ÇİZEREK SEÇİN" : " MODU")); 
 }
 
@@ -810,7 +745,7 @@ function exportDXF() {
     let d="0\nSECTION\n2\nENTITIES\n"; 
     pts.forEach(p=>d+=`0\nPOINT\n8\n${p.lay}\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`); 
     lns.forEach(l=>{
-        let activeLay = l.lay || l.from.lay; 
+        let activeLay = l.lay || l.from.lay; // Otomatik atanan tabakaları kullan
         d+=`0\nLINE\n8\n${activeLay}\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`;
     }); 
     d+="0\nENDSEC\n0\nEOF"; download(d,"proje.dxf"); 
