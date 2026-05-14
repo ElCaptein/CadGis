@@ -86,7 +86,7 @@
                 <button id="btn-line" class="btn" style="background:#4b5563" onclick="setMode('line')">➖ HAT BAĞLA</button>
                 <button id="btn-move" class="btn" style="background:var(--info)" onclick="setMode('move')">🖐️ TAŞI</button>
             </div>
-            <button id="btn-delete" class="btn" style="background:var(--danger)" onclick="setMode('delete')">🗑️ SİL (Obje Seç)</button>
+            <button id="btn-delete" class="btn" style="background:var(--danger)" onclick="setMode('delete')" title="Silmek için objeye tıklayın veya boşluğa basılı tutup sürükleyin">🗑️ SİL (Çoklu Seç/Sürükle)</button>
             
             <label style="font-size:10px; margin-top:8px; display:block; border-top:1px solid #ccc; padding-top:5px;">Gelişmiş Çizim Seçenekleri</label>
             <div class="grid-3">
@@ -131,8 +131,8 @@
         <div class="acc-content">
             <button class="btn" style="background:#8e44ad" onclick="autoLink('seq')">🔄 NCN SIRASINA GÖRE BAĞLA</button>
             <div class="grid-2">
-                <button class="btn" style="background:#1abc9c" onclick="autoLink('near')">📍 EN YAKIN</button>
-                <button class="btn" style="background:#2980b9" onclick="autoLink('layer')">🏗️ TABAKA</button>
+                <button class="btn" style="background:#1abc9c" onclick="autoLink('near')">📍 EN YAKIN (Mesafe)</button>
+                <button class="btn" style="background:#2980b9" onclick="autoLink('layer')">🏗️ TABAKA (Mesafe)</button>
             </div>
             <button class="btn" style="background:#e74c3c; margin-top:5px;" onclick="createTIN()">📐 ÜÇGENLE (TIN OLUŞTUR)</button>
         </div>
@@ -209,7 +209,7 @@
     <label>Y (Doğu):</label><input type="number" id="ed-y" step="0.001">
     <label>X (Kuzey):</label><input type="number" id="ed-x" step="0.001">
     <label>Z (Kot):</label><input type="number" id="ed-z" step="0.001">
-    <label>Tabaka:</label><input type="text" id="ed-lay">
+    <label>Tabaka (Yeni yazıp Kaydet derseniz oluşturulur):</label><input type="text" id="ed-lay">
     <div class="grid-2" style="margin-top:15px;">
         <button class="btn" style="background:var(--success)" onclick="savePt()">KAYDET</button>
         <button class="btn" style="background:var(--danger)" onclick="document.getElementById('pt-edit-modal').style.display='none'">İPTAL</button>
@@ -273,6 +273,9 @@ let lineStart = null; let moveTarget = null; let advSelectedShape = null;
 let measurePts = []; let profilePts = []; let editTargetId = null;
 let k_nebati = []; let k_kazi = [];
 
+// Çoklu seçim değişkenleri
+let boxSelecting = false; let boxStartPoint = null; let selectionRect = null;
+
 function getTrueDistance(p1, p2) { return Math.hypot(p1.x - p2.x, p1.y - p2.y); }
 
 function init() {
@@ -287,6 +290,55 @@ function init() {
             showInfo(`Taşınıyor... Mesafe: ${dist.toFixed(2)} m (${(dist*100).toFixed(0)} cm)`);
             lyrTemp.clearLayers();
             L.polyline([[moveTarget.y, moveTarget.x], [e.latlng.lat, e.latlng.lng]], {color:'yellow', dashArray:'5,5', weight:2}).addTo(lyrTemp);
+        }
+        
+        // Çoklu seçim (Sürükleme Kutusu)
+        if (boxSelecting && selectionRect && mode === 'delete') {
+            selectionRect.setBounds([boxStartPoint, e.latlng]);
+        }
+    });
+
+    map.on('mousedown', (e) => {
+        if (mode === 'delete') {
+            boxSelecting = true;
+            boxStartPoint = e.latlng;
+            selectionRect = L.rectangle([boxStartPoint, boxStartPoint], {color: '#e74c3c', weight: 1, fillOpacity: 0.2, dashArray: '5,5'}).addTo(lyrTemp);
+        }
+    });
+
+    map.on('mouseup', (e) => {
+        if (boxSelecting && selectionRect && mode === 'delete') {
+            boxSelecting = false;
+            let bounds = selectionRect.getBounds();
+            lyrTemp.removeLayer(selectionRect);
+            selectionRect = null;
+
+            // Çok küçük bir tıklama ise normal tıklama işlemi yapsın
+            let p1 = map.latLngToContainerPoint(bounds.getNorthWest());
+            let p2 = map.latLngToContainerPoint(bounds.getSouthEast());
+            if(Math.abs(p1.x - p2.x) < 5 && Math.abs(p1.y - p2.y) < 5) return;
+
+            saveState();
+            let ptsToDelete = new Set();
+            pts.forEach(p => { if(bounds.contains([p.y, p.x])) ptsToDelete.add(p); });
+
+            let lnsToDelete = new Set();
+            lns.forEach(l => {
+                let pf = L.latLng(l.from.y, l.from.x);
+                let pt = L.latLng(l.to.y, l.to.x);
+                let pm = L.latLng((l.from.y + l.to.y)/2, (l.from.x + l.to.x)/2);
+                if(bounds.contains(pf) || bounds.contains(pt) || bounds.contains(pm) || ptsToDelete.has(l.from) || ptsToDelete.has(l.to)) {
+                    lnsToDelete.add(l);
+                }
+            });
+
+            if(ptsToDelete.size > 0 || lnsToDelete.size > 0) {
+                pts = pts.filter(p => !ptsToDelete.has(p));
+                lns = lns.filter(l => !lnsToDelete.has(l));
+                render();
+                showInfo(`Toplu Seçim: ${ptsToDelete.size} Nokta, ${lnsToDelete.size} Hat Silindi.`);
+                setTimeout(hideInfo, 2500);
+            }
         }
     });
 
@@ -507,8 +559,27 @@ function openEdit(idx) {
 }
 
 function savePt() {
-    saveState(); let p = pts.find(x => x.id == editTargetId);
-    if(p) { p.id = document.getElementById('ed-id').value; p.y = parseFloat(document.getElementById('ed-y').value); p.x = parseFloat(document.getElementById('ed-x').value); p.z = parseFloat(document.getElementById('ed-z').value); p.lay = document.getElementById('ed-lay').value; render(); }
+    saveState(); 
+    let p = pts.find(x => x.id == editTargetId);
+    if(p) { 
+        p.id = document.getElementById('ed-id').value; 
+        p.y = parseFloat(document.getElementById('ed-y').value); 
+        p.x = parseFloat(document.getElementById('ed-x').value); 
+        p.z = parseFloat(document.getElementById('ed-z').value); 
+        
+        // Yeni tabaka kontrolü ve ekleme
+        let newLay = document.getElementById('ed-lay').value;
+        p.lay = newLay; 
+        
+        let sel = document.getElementById('layerFilter');
+        if(!Array.from(sel.options).some(o => o.value === newLay)) {
+            sel.add(new Option(newLay, newLay));
+            showInfo(`Yeni Tabaka Oluşturuldu: ${newLay}`);
+            setTimeout(hideInfo, 2000);
+        }
+        
+        render(); 
+    }
     document.getElementById('pt-edit-modal').style.display='none';
 }
 
@@ -574,10 +645,49 @@ function finishMapProfile() {
 
 function autoLink(type) {
     saveState();
-    if(type==='seq') { for(let i=0; i<pts.length-1; i++) lns.push({from:pts[i], to:pts[i+1]}); }
-    else if(type==='near') { pts.forEach(p => { let n=null, md=Infinity; pts.forEach(p2=>{if(p===p2)return; let d=getTrueDistance(p,p2); if(d<md){md=d;n=p2;}}); if(n) lns.push({from:p,to:n}); }); }
-    else if(type==='layer') { let grp={}; pts.forEach(p=>{if(!grp[p.lay])grp[p.lay]=[]; grp[p.lay].push(p);}); for(let g in grp){for(let i=0; i<grp[g].length-1;i++) lns.push({from:grp[g][i], to:grp[g][i+1]});} }
-    render(); showInfo("Bağlandı."); setTimeout(hideInfo, 1500);
+    let minD = 0, maxD = Infinity, nLay = "OTO_HAT";
+    let count = 0;
+
+    if(type === 'near' || type === 'layer') {
+        let prm = prompt("Bağlanacak minimum ve maksimum mesafe (m) değerlerini virgülle ayırarak girin (Örn: 2,50):", "0,100");
+        if(!prm) return;
+        let vals = prm.split(',');
+        minD = parseFloat(vals[0]) || 0;
+        maxD = parseFloat(vals[1]) || Infinity;
+        nLay = `OTO_HAT_${minD}_${maxD === Infinity ? 'MAX' : maxD}`;
+        
+        let sel = document.getElementById('layerFilter');
+        if(!Array.from(sel.options).some(o => o.value === nLay)) sel.add(new Option(nLay, nLay));
+    }
+
+    if(type==='seq') { 
+        for(let i=0; i<pts.length-1; i++) { lns.push({from:pts[i], to:pts[i+1]}); count++; }
+    }
+    else if(type==='near') { 
+        pts.forEach(p => { 
+            let n=null, md=Infinity; 
+            pts.forEach(p2=>{
+                if(p===p2)return; 
+                let d=getTrueDistance(p,p2); 
+                if(d >= minD && d <= maxD && d < md){md=d; n=p2;}
+            }); 
+            if(n) { lns.push({from:p, to:n, lay: nLay}); count++; } 
+        }); 
+    }
+    else if(type==='layer') { 
+        let grp={}; 
+        pts.forEach(p=>{if(!grp[p.lay])grp[p.lay]=[]; grp[p.lay].push(p);}); 
+        for(let g in grp){
+            for(let i=0; i<grp[g].length-1; i++) {
+                let d = getTrueDistance(grp[g][i], grp[g][i+1]);
+                if(d >= minD && d <= maxD) { lns.push({from:grp[g][i], to:grp[g][i+1], lay: nLay}); count++; }
+            }
+        } 
+    }
+    
+    render(); 
+    showInfo(`${count} adet hat bağlandı ve yeni tabakaya atandı.`); 
+    setTimeout(hideInfo, 2500);
 }
 
 function createTIN() {
@@ -609,13 +719,38 @@ function undo() { if(history.length){ let s=JSON.parse(history.pop()); pts=s.pts
 function showInfo(t) { let i=document.getElementById('info-panel'); i.innerText=t; i.style.display='block'; }
 function hideInfo() { document.getElementById('info-panel').style.display='none'; }
 function toggleAcc(el) { el.parentElement.classList.toggle('active'); }
-function setMode(m) { mode=m; moveTarget=null; lineStart=null; advSelectedShape=null; lyrTemp.clearLayers(); measurePts=[]; profilePts=[]; document.querySelectorAll('.btn').forEach(b=>b.classList.remove('btn-active')); document.getElementById('btn-'+(m.includes('geo')?'':m))?.classList.add('btn-active'); hideInfo(); document.getElementById('adv-params').style.display='none'; document.getElementById('geo-params').style.display='none'; if(m!=='idle') showInfo(m.toUpperCase() + (m==='delete' ? ": OBJEYE TIKLAYIN" : " MODU")); }
+
+function setMode(m) { 
+    mode=m; moveTarget=null; lineStart=null; advSelectedShape=null; 
+    lyrTemp.clearLayers(); measurePts=[]; profilePts=[]; 
+    document.querySelectorAll('.btn').forEach(b=>b.classList.remove('btn-active')); 
+    document.getElementById('btn-'+(m.includes('geo')?'':m))?.classList.add('btn-active'); 
+    hideInfo(); 
+    document.getElementById('adv-params').style.display='none'; 
+    document.getElementById('geo-params').style.display='none'; 
+
+    // Toplu seçim esnasında ekranı kaydırmamak için sürüklemeyi kapatıyoruz
+    if(m === 'delete') { map.dragging.disable(); } else { map.dragging.enable(); }
+
+    if(m!=='idle') showInfo(m.toUpperCase() + (m==='delete' ? ": OBJEYE TIKLAYIN VEYA KUTU ÇİZEREK SEÇİN" : " MODU")); 
+}
+
 function setAdvMode(m) { setMode(m); document.getElementById('adv-params').style.display='block'; document.getElementById('pnl-polar').style.display=m==='polar'?'block':'none'; document.getElementById('pnl-offset').style.display=m==='offset'?'block':'none'; document.getElementById('pnl-mirror').style.display=m==='mirror'?'block':'none'; }
 function setGeoMode(m) { geoMode=m; setMode('geo'); document.getElementById('geo-params').style.display='block'; document.getElementById('geo-p2-container').style.display=m==='rect'?'block':'none'; document.getElementById('geo-sides-container').style.display=m==='polygon'?'block':'none'; showInfo("Merkeze Tıklayın"); }
 function resetMode() { setMode('idle'); }
 
 function download(c, n) { let a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c])); a.download=n; a.click(); }
-function exportDXF() { let d="0\nSECTION\n2\nENTITIES\n"; pts.forEach(p=>d+=`0\nPOINT\n8\n${p.lay}\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`); lns.forEach(l=>d+=`0\nLINE\n8\n${l.from.lay}\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`); d+="0\nENDSEC\n0\nEOF"; download(d,"proje.dxf"); }
+
+function exportDXF() { 
+    let d="0\nSECTION\n2\nENTITIES\n"; 
+    pts.forEach(p=>d+=`0\nPOINT\n8\n${p.lay}\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`); 
+    lns.forEach(l=>{
+        let activeLay = l.lay || l.from.lay; // Otomatik atanan tabakaları kullan
+        d+=`0\nLINE\n8\n${activeLay}\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`;
+    }); 
+    d+="0\nENDSEC\n0\nEOF"; download(d,"proje.dxf"); 
+}
+
 function exportXLS() { let ws=XLSX.utils.json_to_sheet(pts); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Noktalar"); XLSX.writeFile(wb, "proje.xlsx"); }
 function exportXYZ() { download(pts.map(p=>`${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)}`).join('\n'), "proje.xyz"); }
 function exportKML() { let k=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>`; pts.forEach(p=>k+=`<Placemark><name>${p.id}</name><Point><coordinates>${p.y},${p.x},${p.z}</coordinates></Point></Placemark>`); k+=`</Document></kml>`; download(k,"proje.kml"); }
