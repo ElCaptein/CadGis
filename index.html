@@ -439,51 +439,50 @@ function addArea(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts
 function drawTempProfile() { lyrTemp.clearLayers(); if(profilePts.length>1) L.polyline(profilePts.map(p=>[p.y, p.x]), {color:'#3498db', weight:2, dashArray:'4,4'}).addTo(lyrTemp); }
 function finishMapProfile() { /* Eski grafik korundu */ }
 
-// AUTO LINK 
+// GÜNCELLENMİŞ AUTO-LINK MOTORU
 function autoLink(type) {
     if (pts.length < 2) return alert("Yetersiz nokta!");
-    saveState(); let count = 0;
-    let targetLayer = type === 'layer' ? prompt("Tabaka:") : "all";
-    if (type === 'layer' && !targetLayer) return;
+    
+    // 1. Kullanıcıdan mesafe sınırını al
+    let maxDist = parseFloat(prompt("Bağlantı için maksimum mesafe eşiği (m):", "50.0"));
+    if (isNaN(maxDist)) return; 
 
-    let workingSet = targetLayer === "all" ? pts : pts.filter(p => p.lay === targetLayer);
-    let askNear = type === 'near' ? confirm("En Yakına bağlansın mı?") : false;
-    let askFar = type === 'near' ? confirm("En Uzağa bağlansın mı?") : false;
+    saveState(); 
+    let count = 0;
+    let targetLayer = type === 'layer' ? prompt("Tabaka Adı (Boş bırakılırsa tümü):") : "all";
+
+    let workingSet = (targetLayer === "all" || !targetLayer) ? pts : pts.filter(p => p.lay === targetLayer);
     
     if(type === 'seq') {
-        for(let i=0; i<pts.length-1; i++) { lns.push({from:pts[i], to:pts[i+1], lay:"OTO"}); count++; }
+        // Ardışık bağlantı (Nokta adına göre)
+        for(let i=0; i<pts.length-1; i++) {
+            let d = getTrueDistance(pts[i], pts[i+1]);
+            if(d <= maxDist) {
+                lns.push({from:pts[i], to:pts[i+1], lay:"SEQ_LINK"});
+                count++;
+            }
+        }
     } else {
+        // En Yakın / Uzak Komşu Mantığı
         workingSet.forEach(p => {
-            let candidates = workingSet.map(p2 => ({pt: p2, d: getTrueDistance(p, p2)})).filter(c => c.d > 0.001).sort((a, b) => a.d - b.d);
+            let candidates = workingSet
+                .map(p2 => ({pt: p2, d: getTrueDistance(p, p2)}))
+                .filter(c => c.d > 0.001 && c.d <= maxDist) // Eşik değer kontrolü eklendi
+                .sort((a, b) => a.d - b.d);
+            
             if(candidates.length === 0) return;
-            if(askNear && !lns.some(l => (l.from===p && l.to===candidates[0].pt))) { lns.push({from:p, to:candidates[0].pt, lay:"OTO_YAKIN"}); count++; }
-            if(askFar && !lns.some(l => (l.from===p && l.to===candidates[candidates.length-1].pt))) { lns.push({from:p, to:candidates[candidates.length-1].pt, lay:"OTO_UZAK"}); count++; }
+
+            // En yakına bağla
+            if(!lns.some(l => (l.from === p && l.to === candidates[0].pt) || (l.to === p && l.from === candidates[0].pt))) {
+                lns.push({from:p, to:candidates[0].pt, lay:"NEAR_LINK"});
+                count++;
+            }
         });
     }
-    render(); showInfo(`${count} hat eklendi.`);
+    render(); 
+    showInfo(`${count} adet anlamlı hat (max ${maxDist}m) oluşturuldu.`);
+    setTimeout(hideInfo, 3000);
 }
-
-function createTIN() {
-    saveState(); if(pts.length<3) return;
-    for(let i=0; i<pts.length; i++) {
-        let p = pts[i]; let tgts = pts.map((p2, idx)=>({idx, d:getTrueDistance(p,p2)})).sort((a,b)=>a.d-b.d).slice(1,4);
-        tgts.forEach(t => lns.push({from:p, to:pts[t.idx], lay:"TIN"}));
-    } render();
-}
-
-function loadKubaFile(input, type) {
-    let r=new FileReader(); r.onload=(e)=>{
-        let d=e.target.result.split('\n').map(l=>{
-            let p=l.trim().split(/[\s,]+/); return p.length>=3?{id:p[0], y:parseFloat(p[1]), x:parseFloat(p[2]), z:parseFloat(p[3]||0)}:null;
-        }).filter(v=>v);
-        // Benzersiz koordinatları tut (Delaunay Çakışmasını Önler)
-        let unique = [];
-        for(let pt of d) { if(!unique.some(u => Math.abs(u.x - pt.x)<0.001 && Math.abs(u.y - pt.y)<0.001)) unique.push(pt); }
-        if(type==='nebati') k_nebati=unique; else k_kazi=unique; 
-        alert(`${unique.length} Benzersiz Nokta Okundu.`);
-    }; r.readAsText(input.files[0]);
-}
-
 // -----------------------------------------------------------------------------------
 // 🚀 V4.0: SIFIRDAN YAZILMIŞ "CIVIL 3D" STANDARDI TIN & PRISMOIDAL KÜBAJ MOTORU
 // -----------------------------------------------------------------------------------
