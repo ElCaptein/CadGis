@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile Cad Pro v2.3 - Mühendislik & Otomasyon Platformu</title>
+    <title>Mobile Cad Pro v2.5 - Mühendislik & Otomasyon Platformu</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -247,8 +247,12 @@
             </div>
             <div style="background:#1e1e1e; padding:25px; border-radius:12px; border:1px solid #333;">
                 <h4 style="color:var(--success); margin-top:0;">📄 Yüzey Verileri (NCN/XYZ)</h4>
-                <label>1. Doğal Zemin Dosyası (Alt Yüzey):</label><input type="file" onchange="loadKubaFile(this, 'nebati')">
-                <label>2. Kazı / Dolgu Sonrası Nihai Yüzey (Üst):</label><input type="file" onchange="loadKubaFile(this, 'kazi')">
+                <label>1. Doğal Zemin Dosyası (Alt Yüzey — NCN/XYZ/TXT):</label>
+                <input type="file" onchange="loadKubaFile(this, 'nebati')" accept=".ncn,.xyz,.txt,.csv">
+                <div id="k-lbl-nebati" style="font-size:11px; color:#aaa; margin:-2px 0 6px 2px;">⬜ Henüz yüklenmedi</div>
+                <label>2. Kırmızı Kot / Nihai Yüzey (Üst — NCN/XYZ/TXT):</label>
+                <input type="file" onchange="loadKubaFile(this, 'kazi')" accept=".ncn,.xyz,.txt,.csv">
+                <div id="k-lbl-kazi"   style="font-size:11px; color:#aaa; margin:-2px 0 6px 2px;">⬜ Henüz yüklenmedi</div>
                 <button class="btn" style="background:var(--success); margin-top:12px; padding:14px;" onclick="calculateRouteVolume()">📐 TIN PRISMOIDAL KÜBAJ HESAPLA</button>
             </div>
         </div>
@@ -258,6 +262,9 @@
                 <div style="flex:1; background:#1b3a24; color:#2ecc71; padding:20px; border-radius:10px; border:1px solid #2ecc71;">Toplam Kazı (Net Yarma): <h2 id="r-cut" style="margin:10px 0 0 0;">0 m³</h2></div>
                 <div style="flex:1; background:#4c1c1c; color:#e74c3c; padding:20px; border-radius:10px; border:1px solid #e74c3c;">Toplam Yapısal Dolgu: <h2 id="r-fill" style="margin:10px 0 0 0;">0 m³</h2></div>
                 <div style="flex:1; background:#3a2d12; color:#f1c40f; padding:20px; border-radius:10px; border:1px solid #f1c40f;">Gerekli Toplam Sefer: <h2 id="r-trip" style="margin:10px 0 0 0;">0 Sefer</h2></div>
+            </div>
+            <div style="display:flex; gap:15px; text-align:center; margin-top:12px;">
+                <div style="flex:1; background:#1c2433; color:#3498db; padding:10px; border-radius:8px; border:1px solid #3498db; font-size:12px;">Grid Hassasiyeti: <b id="r-grid">—</b></div>
             </div>
             <button class="btn" style="background:var(--info); width:auto; margin-top:20px; padding:12px 25px;" onclick="exportPDF()">📄 RESMİ RAPOR ÜRET (PDF)</button>
             
@@ -364,7 +371,7 @@ function init() {
     });
 }
 
-function drawGeoForm(pos) { /* Geometrik kodlar eski haliyle sabit */
+function drawGeoForm(pos) { 
     saveState(); let s1 = parseFloat(document.getElementById('geo-p1').value) || 10; let z = parseFloat(document.getElementById('geo-z').value) || 0; let newPts = []; let sId = pts.length + 1;
     if(geoMode === 'circle') for(let i=0; i<360; i+=22.5) newPts.push({id:"C_"+(sId++), y: pos.lat+s1*Math.sin(i*Math.PI/180), x: pos.lng+s1*Math.cos(i*Math.PI/180), z, lay:"GEO"});
     pts = pts.concat(newPts); render(); setTimeout(hideInfo, 1500);
@@ -421,7 +428,7 @@ function render() {
     });
 }
 
-function renderTable() { /* Sabit Kaldı */ }
+function renderTable() {  }
 function focusPt(y, x) { map.flyTo([y, x], 7); L.circleMarker([y, x], {radius:18, color:'#f1c40f', fill:false, weight:2.5}).addTo(lyrTemp); setTimeout(()=>lyrTemp.clearLayers(),1500); }
 function openEdit(idx) { let p = pts[idx]; editTargetId = p.id; document.getElementById('ed-id').value = p.id; document.getElementById('ed-y').value = p.y; document.getElementById('ed-x').value = p.x; document.getElementById('ed-z').value = p.z; document.getElementById('ed-lay').value = p.lay; document.getElementById('pt-edit-modal').style.display='block'; }
 function savePt() { saveState(); let p = pts.find(x => x.id == editTargetId); if(p) { p.id = document.getElementById('ed-id').value; p.y = parseFloat(document.getElementById('ed-y').value); p.x = parseFloat(document.getElementById('ed-x').value); p.z = parseFloat(document.getElementById('ed-z').value); p.lay = document.getElementById('ed-lay').value; render(); } document.getElementById('pt-edit-modal').style.display='none'; }
@@ -437,205 +444,249 @@ function addMeasure(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measure
 function addArea(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts.length>2) { L.polygon(measurePts, {color:'#9b59b6', weight:2, fillOpacity:0.3}).addTo(lyrTemp); let a=0, j=measurePts.length-1; for(let i=0;i<measurePts.length;i++) { a+=(measurePts[j].lng+measurePts[i].lng)*(measurePts[j].lat-measurePts[i].lat); j=i; } showInfo(`📐 ALAN: ${Math.abs(a/2).toFixed(2)} m²`); } }
 
 function drawTempProfile() { lyrTemp.clearLayers(); if(profilePts.length>1) L.polyline(profilePts.map(p=>[p.y, p.x]), {color:'#3498db', weight:2, dashArray:'4,4'}).addTo(lyrTemp); }
-function finishMapProfile() { /* Eski grafik korundu */ }
+function finishMapProfile() { }
 
-// GÜNCELLENMİŞ AUTO-LINK MOTORU
+// GÜNCELLENMİŞ AUTO-LINK MOTORU — Soru Sormadan Doğrudan Sırayla Bağlama Fix'i eklendi
 function autoLink(type) {
     if (pts.length < 2) return alert("Yetersiz nokta!");
-    
-    // 1. Kullanıcıdan mesafe sınırını al
-    let maxDist = parseFloat(prompt("Bağlantı için maksimum mesafe eşiği (m):", "50.0"));
-    if (isNaN(maxDist)) return; 
 
-    saveState(); 
+    saveState();
     let count = 0;
-    let targetLayer = type === 'layer' ? prompt("Tabaka Adı (Boş bırakılırsa tümü):") : "all";
 
-    let workingSet = (targetLayer === "all" || !targetLayer) ? pts : pts.filter(p => p.lay === targetLayer);
-    
-    if(type === 'seq') {
-        // Ardışık bağlantı (Nokta adına göre)
-        for(let i=0; i<pts.length-1; i++) {
-            let d = getTrueDistance(pts[i], pts[i+1]);
-            if(d <= maxDist) {
-                lns.push({from:pts[i], to:pts[i+1], lay:"SEQ_LINK"});
-                count++;
-            }
+    if (type === 'seq') {
+        // Ardışık bağlantı: DİREKT olarak dizideki sıraya göre bağla (Mesafe sorusu kaldırıldı)
+        for (let i = 0; i < pts.length - 1; i++) {
+            lns.push({from: pts[i], to: pts[i+1], lay: "SEQ_LINK"});
+            count++;
         }
-    } else {
-        // En Yakın / Uzak Komşu Mantığı
-        workingSet.forEach(p => {
-            let candidates = workingSet
-                .map(p2 => ({pt: p2, d: getTrueDistance(p, p2)}))
-                .filter(c => c.d > 0.001 && c.d <= maxDist) // Eşik değer kontrolü eklendi
-                .sort((a, b) => a.d - b.d);
-            
-            if(candidates.length === 0) return;
+        render();
+        showInfo(`${count} adet ardışık hat oluşturuldu.`);
+        setTimeout(hideInfo, 3000);
+        return;
+    }
 
-            // En yakına bağla
-            if(!lns.some(l => (l.from === p && l.to === candidates[0].pt) || (l.to === p && l.from === candidates[0].pt))) {
-                lns.push({from:p, to:candidates[0].pt, lay:"NEAR_LINK"});
+    // EN YAKIN / UZAK KOMŞU ve TABAKA BAZLI için min + max mesafe sor
+    let label = type === 'near' ? "📍 EN YAKIN / UZAK KOMŞU" : "🏗️ TABAKA BAZLI DETAYLI BAĞLA";
+    let minDistStr = prompt(label + "\nMinimum mesafe (m) — bu değerin ALTINDAKI noktalar bağlanmaz:", "0.0");
+    if (minDistStr === null) return;
+    let minDist = parseFloat(minDistStr);
+    if (isNaN(minDist) || minDist < 0) return alert("Geçersiz minimum mesafe!");
+
+    let maxDistStr = prompt(label + "\nMaksimum mesafe (m) — bu değerin ÜSTÜNDEKI noktalar bağlanmaz:", "50.0");
+    if (maxDistStr === null) return;
+    let maxDist = parseFloat(maxDistStr);
+    if (isNaN(maxDist) || maxDist <= 0) return alert("Geçersiz maksimum mesafe!");
+    if (minDist >= maxDist) return alert("Minimum mesafe, maksimum mesafeden küçük olmalı!");
+
+    if (type === 'near') {
+        pts.forEach(p => {
+            let candidates = pts
+                .map(p2 => ({pt: p2, d: getTrueDistance(p, p2)}))
+                .filter(c => c.d >= minDist && c.d <= maxDist)
+                .sort((a, b) => a.d - b.d);
+            if (candidates.length === 0) return;
+            let nearest = candidates[0];
+            if (!lns.some(l => (l.from === p && l.to === nearest.pt) || (l.to === p && l.from === nearest.pt))) {
+                lns.push({from: p, to: nearest.pt, lay: "NEAR_LINK"});
                 count++;
             }
         });
+        render();
+        showInfo(`${count} adet yakın-komşu bağlantı (${minDist}m – ${maxDist}m aralığı) oluşturuldu.`);
+
+    } else if (type === 'layer') {
+        let targetLayer = prompt("Bağlanacak tabaka adı (Boş bırakılırsa tüm tabakalar):", "");
+        let workingSet = (targetLayer && targetLayer.trim() !== '')
+            ? pts.filter(p => p.lay === targetLayer.trim())
+            : pts;
+        if (workingSet.length < 2) { alert("Bu tabakada bağlanacak yeterli nokta yok!"); return; }
+        workingSet.forEach(p => {
+            let candidates = workingSet
+                .map(p2 => ({pt: p2, d: getTrueDistance(p, p2)}))
+                .filter(c => c.d >= minDist && c.d <= maxDist)
+                .sort((a, b) => a.d - b.d);
+            if (candidates.length === 0) return;
+            candidates.forEach(c => {
+                if (!lns.some(l => (l.from === p && l.to === c.pt) || (l.to === p && l.from === c.pt))) {
+                    lns.push({from: p, to: c.pt, lay: (targetLayer.trim() || "LAYER_LINK")});
+                    count++;
+                }
+            });
+        });
+        render();
+        showInfo(`${count} adet tabaka bağlantısı (${minDist}m – ${maxDist}m aralığı) oluşturuldu.`);
     }
-    render(); 
-    showInfo(`${count} adet anlamlı hat (max ${maxDist}m) oluşturuldu.`);
-    setTimeout(hideInfo, 3000);
+
+    setTimeout(hideInfo, 3500);
 }
 // -----------------------------------------------------------------------------------
 // 🚀 V4.0: SIFIRDAN YAZILMIŞ "CIVIL 3D" STANDARDI TIN & PRISMOIDAL KÜBAJ MOTORU
 // -----------------------------------------------------------------------------------
 function calculateRouteVolume() {
-    if(!k_nebati.length || !k_kazi.length) return alert("Her iki yüzey dosyasını da yükleyin!");
-    
-    let totalYarma = 0; let totalDolgu = 0;
+    if (!k_nebati.length || !k_kazi.length) {
+        let missing = [];
+        if (!k_nebati.length) missing.push('Doğal Zemin');
+        if (!k_kazi.length) missing.push('Kırmızı Kot');
+        return alert('Eksik dosya: ' + missing.join(', ') + '\nLütfen her iki yüzey dosyasını da yükleyin!');
+    }
+
     let cap = parseFloat(document.getElementById('k-cap').value) || 18;
-    let dist = parseFloat(document.getElementById('k-dist').value) || 5.5;
+    let btnEl = document.querySelector('[onclick="calculateRouteVolume()"]');
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Hesaplanıyor...'; }
 
-    // A) Bowyer-Watson Delaunay Üçgenleme Algoritması (Gerçek Civil 3D Ağ Sistemi)
+    // Async wrapper - UI'yi dondurmamak için
+    setTimeout(() => {
+        try {
+            _doKubaj(cap);
+        } catch(err) {
+            alert('Hesaplama hatası: ' + err.message);
+            console.error(err);
+        } finally {
+            if (btnEl) { btnEl.disabled = false; btnEl.textContent = '📐 TIN PRISMOIDAL KÜBAJ HESAPLA'; }
+        }
+    }, 50);
+}
+
+function _doKubaj(cap) {
+    // ── A) Bowyer-Watson Delaunay TIN ──────────────────────────────────────────
     function buildTIN(vertices) {
-        if(vertices.length < 3) return [];
-        let minX = Math.min(...vertices.map(v => v.x)), minY = Math.min(...vertices.map(v => v.y));
-        let maxX = Math.max(...vertices.map(v => v.x)), maxY = Math.max(...vertices.map(v => v.y));
-        let dx = maxX - minX, dy = maxY - minY;
-        let dMax = Math.max(dx, dy);
+        if (vertices.length < 3) return [];
+        let xs = vertices.map(v => v.x), ys = vertices.map(v => v.y);
+        let minX = Math.min(...xs), maxX = Math.max(...xs);
+        let minY = Math.min(...ys), maxY = Math.max(...ys);
+        let dMax = Math.max(maxX - minX, maxY - minY) || 1;
         let midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
+        let s1 = {x: midX - 20*dMax, y: midY - dMax,    z: 0, sup: true};
+        let s2 = {x: midX,           y: midY + 20*dMax,  z: 0, sup: true};
+        let s3 = {x: midX + 20*dMax, y: midY - dMax,    z: 0, sup: true};
+        let tris = [[s1, s2, s3]];
 
-        let p1 = {x: midX - 20 * dMax, y: midY - dMax, z: 0, super: true};
-        let p2 = {x: midX, y: midY + 20 * dMax, z: 0, super: true};
-        let p3 = {x: midX + 20 * dMax, y: midY - dMax, z: 0, super: true};
-
-        let triangles = [[p1, p2, p3]];
-
-        function getCircumcircle(a, b, c) {
-            let dx1 = b.x - a.x, dy1 = b.y - a.y, dx2 = c.x - a.x, dy2 = c.y - a.y;
-            let len1 = dx1*dx1 + dy1*dy1, len2 = dx2*dx2 + dy2*dy2;
-            let det = dx1*dy2 - dy1*dx2;
-            if(Math.abs(det) < 1e-8) return {x:0, y:0, rsq: 0};
-            let cx = a.x + (dy2*len1 - dy1*len2) / (2*det);
-            let cy = a.y + (dx1*len2 - dx2*len1) / (2*det);
-            return { x: cx, y: cy, rsq: (cx - a.x)**2 + (cy - a.y)**2 };
+        function circ(a, b, c) {
+            let dx1 = b.x-a.x, dy1 = b.y-a.y, dx2 = c.x-a.x, dy2 = c.y-a.y;
+            let l1 = dx1*dx1+dy1*dy1, l2 = dx2*dx2+dy2*dy2, det = dx1*dy2-dy1*dx2;
+            if (Math.abs(det) < 1e-10) return {x:0,y:0,rsq:0};
+            let cx = a.x+(dy2*l1-dy1*l2)/(2*det), cy = a.y+(dx1*l2-dx2*l1)/(2*det);
+            return {x:cx, y:cy, rsq:(cx-a.x)**2+(cy-a.y)**2};
         }
 
-        for(let p of vertices) {
-            let badTris = [];
-            for(let t of triangles) {
-                let c = getCircumcircle(t[0], t[1], t[2]);
-                if(c.rsq > 0 && (p.x - c.x)**2 + (p.y - c.y)**2 <= c.rsq + 0.0001) badTris.push(t);
+        for (let p of vertices) {
+            let bad = [];
+            for (let t of tris) {
+                let c = circ(t[0],t[1],t[2]);
+                if (c.rsq > 0 && (p.x-c.x)**2+(p.y-c.y)**2 <= c.rsq + 1e-6) bad.push(t);
             }
-            let polygon = [];
-            for(let t of badTris) {
-                for(let i=0; i<3; i++) {
+            let poly = [];
+            for (let t of bad) {
+                for (let i = 0; i < 3; i++) {
                     let e1 = t[i], e2 = t[(i+1)%3];
-                    let shared = false;
-                    for(let ot of badTris) {
-                        if(t === ot) continue;
-                        if((ot[0]===e1||ot[1]===e1||ot[2]===e1) && (ot[0]===e2||ot[1]===e2||ot[2]===e2)) { shared = true; break; }
-                    }
-                    if(!shared) polygon.push([e1, e2]);
+                    let shared = bad.some(ot => ot !== t &&
+                        (ot[0]===e1||ot[1]===e1||ot[2]===e1) &&
+                        (ot[0]===e2||ot[1]===e2||ot[2]===e2));
+                    if (!shared) poly.push([e1, e2]);
                 }
             }
-            triangles = triangles.filter(t => !badTris.includes(t));
-            for(let edge of polygon) triangles.push([edge[0], edge[1], p]);
+            tris = tris.filter(t => !bad.includes(t));
+            for (let e of poly) tris.push([e[0], e[1], p]);
         }
-        return triangles.filter(t => !t[0].super && !t[1].super && !t[2].super);
+        return tris.filter(t => !t[0].sup && !t[1].sup && !t[2].sup);
     }
 
-    let tinNebati = buildTIN(k_nebati);
-    let tinKazi = buildTIN(k_kazi);
-
-    // B) Noktanın Üçgen İçinde Olup Olmadığını Test Et
-    function sign(p1, p2, p3) { return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y); }
-    function inTriangle(pt, t) {
-        let d1 = sign(pt, t[0], t[1]), d2 = sign(pt, t[1], t[2]), d3 = sign(pt, t[2], t[0]);
-        let hasNeg = (d1 < -0.0001) || (d2 < -0.0001) || (d3 < -0.0001);
-        let hasPos = (d1 > 0.0001) || (d2 > 0.0001) || (d3 > 0.0001);
-        return !(hasNeg && hasPos);
+    // ── B) Nokta-üçgen testi ───────────────────────────────────────────────────
+    function inTri(pt, t) {
+        function s(p1,p2,p3) { return (p1.x-p3.x)*(p2.y-p3.y)-(p2.x-p3.x)*(p1.y-p3.y); }
+        let d1=s(pt,t[0],t[1]), d2=s(pt,t[1],t[2]), d3=s(pt,t[2],t[0]);
+        return !((d1<-1e-6||d2<-1e-6||d3<-1e-6)&&(d1>1e-6||d2>1e-6||d3>1e-6));
     }
 
-    // C) 3D Düzlem Denklemi Üzerinden Milimetrik Z Kesişimi
-    function getZ_TIN(x, y, tin) {
-        let pt = {x: x, y: y};
-        for(let t of tin) {
-            if(inTriangle(pt, t)) {
-                let Nx = (t[1].y - t[0].y)*(t[2].z - t[0].z) - (t[1].z - t[0].z)*(t[2].y - t[0].y);
-                let Ny = (t[1].z - t[0].z)*(t[2].x - t[0].x) - (t[1].x - t[0].x)*(t[2].z - t[0].z);
-                let Nz = (t[1].x - t[0].x)*(t[2].y - t[0].y) - (t[1].y - t[0].y)*(t[2].x - t[0].x);
-                if(Math.abs(Nz) < 1e-8) return t[0].z; 
-                return t[0].z - (Nx * (x - t[0].x) + Ny * (y - t[0].y)) / Nz;
+    // ── C) Düzlem Z interpolasyonu ─────────────────────────────────────────────
+    function getZ(x, y, tin) {
+        let pt = {x, y};
+        for (let t of tin) {
+            if (inTri(pt, t)) {
+                let Nx = (t[1].y-t[0].y)*(t[2].z-t[0].z)-(t[1].z-t[0].z)*(t[2].y-t[0].y);
+                let Ny = (t[1].z-t[0].z)*(t[2].x-t[0].x)-(t[1].x-t[0].x)*(t[2].z-t[0].z);
+                let Nz = (t[1].x-t[0].x)*(t[2].y-t[0].y)-(t[1].y-t[0].y)*(t[2].x-t[0].x);
+                if (Math.abs(Nz) < 1e-10) return t[0].z;
+                return t[0].z - (Nx*(x-t[0].x) + Ny*(y-t[0].y)) / Nz;
             }
         }
-        return null; // Nokta TIN sınırlarının dışındaysa (Yani hesaplama yapılmaz)
+        return null;
     }
 
-    // Çalışma alanını Kırmızı Kodun Sınırlarına (Bounding Box) Kapatıyoruz
-    let minX = Math.min(...k_kazi.map(p=>p.x)), maxX = Math.max(...k_kazi.map(p=>p.x));
-    let minY = Math.min(...k_kazi.map(p=>p.y)), maxY = Math.max(...k_kazi.map(p=>p.y));
+    // ── D) TIN oluştur ─────────────────────────────────────────────────────────
+    let tinZ = buildTIN(k_nebati);   // Doğal zemin (alt)
+    let tinK = buildTIN(k_kazi);     // Kırmızı kot (üst)
 
-    // Yüksek Hassasiyetli Grid Tarama: 0.1 m x 0.1 m = 0.01 m2 hücre boyutu (C3D Prismoidal Standartı)
-    let gridSize = 0.1; 
-    let cellArea = gridSize * gridSize;
+    if (tinZ.length === 0 || tinK.length === 0) {
+        alert('TIN oluşturulamadı — her yüzeyde en az 3 nokta gerekli.');
+        return;
+    }
 
+    // ── E) Bounding box: KIRMIZI kotun sınırları (proje alanı)
+    let allPts = k_kazi;
+    let minX = Math.min(...allPts.map(p=>p.x)), maxX = Math.max(...allPts.map(p=>p.x));
+    let minY = Math.min(...allPts.map(p=>p.y)), maxY = Math.max(...allPts.map(p=>p.y));
+
+    // ── F) Adaptif grid tarama: 0.25 m²/hücre (hassas + hızlı)
+    // Alan hesabı ile grid boyutunu otomatik seç
+    let totalArea = (maxX - minX) * (maxY - minY);
+    let gridSize = totalArea > 100000 ? 0.5 : (totalArea > 10000 ? 0.25 : 0.1);
+    let cellArea  = gridSize * gridSize;
+
+    let totalYarma = 0, totalDolgu = 0;
     const macroCols = 10, macroRows = 10;
-    let stepX = (maxX - minX) / macroCols;
-    let stepY = (maxY - minY) / macroRows;
-    let macroGrids = Array(macroCols * macroRows).fill(null).map(()=>({cut:0, fill:0, cx:0, cy:0, active:false}));
+    let stepX = (maxX - minX) / macroCols || 1;
+    let stepY = (maxY - minY) / macroRows || 1;
+    let macroGrids = Array.from({length: macroCols * macroRows}, () =>
+        ({cut:0, fill:0, cx:0, cy:0, active:false, ptCnt:0}));
 
-    for (let x = minX; x <= maxX; x += gridSize) {
-        for (let y = minY; y <= maxY; y += gridSize) {
-            
-            // Hem kırmızı hem de zemin TIN yüzeylerinde bu X,Y koordinatının Z karşılığı var mı? (Üst üste binme testi)
-            let zKirmizi = getZ_TIN(x, y, tinKazi);
-            let zZemin = getZ_TIN(x, y, tinNebati);
+    for (let x = minX; x <= maxX + 1e-9; x += gridSize) {
+        for (let y = minY; y <= maxY + 1e-9; y += gridSize) {
+            let zKirmizi = getZ(x, y, tinK);
+            let zZemin   = getZ(x, y, tinZ);
+            if (zKirmizi === null || zZemin === null) continue;
 
-            if (zKirmizi !== null && zZemin !== null) {
-                let diff = zKirmizi - zZemin;
-                let localCut = 0, localFill = 0;
+            let diff = zKirmizi - zZemin;
+            let localCut = 0, localFill = 0;
+            if      (diff < -0.001) { localCut  = Math.abs(diff) * cellArea; totalYarma += localCut; }
+            else if (diff >  0.001) { localFill = diff * cellArea;           totalDolgu += localFill; }
 
-                // 1 mm Tolerans ile Hacim Ayrıştırma
-                if (diff < -0.001) {
-                    localCut = Math.abs(diff) * cellArea; // Zemin yüksek -> Kazı(Yarma)
-                    totalYarma += localCut;
-                } else if (diff > 0.001) {
-                    localFill = diff * cellArea;         // Kırmızı yüksek -> Dolgu
-                    totalDolgu += localFill;
-                }
-
-                if (localCut > 0 || localFill > 0) {
-                    let col = Math.min(Math.floor((x - minX) / stepX), macroCols - 1);
-                    let row = Math.min(Math.floor((y - minY) / stepY), macroRows - 1);
-                    let idx = row * macroCols + col;
-                    
-                    if(!macroGrids[idx].active) { macroGrids[idx].cx = x; macroGrids[idx].cy = y; macroGrids[idx].active = true; }
-                    macroGrids[idx].cut += localCut;
-                    macroGrids[idx].fill += localFill;
-                }
+            if (localCut > 0 || localFill > 0) {
+                let col = Math.min(Math.floor((x - minX) / stepX), macroCols - 1);
+                let row = Math.min(Math.floor((y - minY) / stepY), macroRows - 1);
+                let idx = row * macroCols + col;
+                let mg = macroGrids[idx];
+                if (!mg.active) { mg.cx = x; mg.cy = y; mg.active = true; }
+                mg.cut  += localCut;
+                mg.fill += localFill;
+                mg.ptCnt++;
             }
         }
     }
 
-    let html = ""; let sectorIndex = 1;
-    macroGrids.forEach((mg) => {
-        if (mg.active && (mg.cut > 0 || mg.fill > 0)) {
-            let req = Math.ceil((mg.cut + mg.fill) / cap);
-            html += `<tr>
-                <td>Matris-${sectorIndex++}</td>
-                <td>${mg.cx.toFixed(2)}</td>
-                <td>${mg.cy.toFixed(2)}</td>
-                <td style="color:#2ecc71; font-weight:bold;">${mg.cut.toFixed(2)}</td>
-                <td style="color:#e74c3c; font-weight:bold;">${mg.fill.toFixed(2)}</td>
-                <td>${req}</td>
-                <td>${mg.cut > mg.fill ? 'Hafriyat Çıkışı' : 'Dolgu Temini'}</td>
-            </tr>`;
-        }
+    // ── G) Sonuçları göster ────────────────────────────────────────────────────
+    let html = ''; let sectorIndex = 1;
+    macroGrids.forEach(mg => {
+        if (!mg.active || (mg.cut + mg.fill < 0.001)) return;
+        let req = Math.ceil((mg.cut + mg.fill) / cap);
+        html += `<tr>
+            <td>Matris-${sectorIndex++}</td>
+            <td>${mg.cx.toFixed(2)}</td>
+            <td>${mg.cy.toFixed(2)}</td>
+            <td style="color:#2ecc71;font-weight:bold;">${mg.cut.toFixed(3)}</td>
+            <td style="color:#e74c3c;font-weight:bold;">${mg.fill.toFixed(3)}</td>
+            <td>${req}</td>
+            <td>${mg.cut > mg.fill ? 'Hafriyat Çıkışı' : 'Dolgu Temini'}</td>
+        </tr>`;
     });
 
-    document.getElementById('r-cut').innerText = totalYarma.toFixed(2) + " m³";
-    document.getElementById('r-fill').innerText = totalDolgu.toFixed(2) + " m³";
-    document.getElementById('r-trip').innerText = Math.ceil((totalYarma + totalDolgu) / cap) + " Sefer";
-    document.getElementById('res-body').innerHTML = html;
+    document.getElementById('r-cut').innerText   = totalYarma.toFixed(3) + ' m³';
+    document.getElementById('r-fill').innerText  = totalDolgu.toFixed(3) + ' m³';
+    document.getElementById('r-trip').innerText  = Math.ceil((totalYarma + totalDolgu) / cap) + ' Sefer';
+    document.getElementById('res-body').innerHTML = html || '<tr><td colspan="7" style="color:#e74c3c">İki yüzey arasında çakışma bulunamadı. Koordinat sistemlerini kontrol edin.</td></tr>';
     document.getElementById('res-area').style.display = 'block';
+    let gridInfo = document.getElementById('r-grid');
+    if (gridInfo) gridInfo.innerText = gridSize + ' m grid (' + totalArea.toFixed(0) + ' m² alan)';
 }
 
 function zoomAll() { if(pts.length) map.fitBounds(L.latLngBounds(pts.map(p=>[p.y,p.x])), {padding:[30,30]}); }
@@ -650,11 +701,139 @@ function setGeoMode(m) { geoMode=m; setMode('geo'); document.getElementById('geo
 function resetMode() { setMode('idle'); }
 
 function download(c, n) { let a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c])); a.download=n; a.click(); }
-function exportDXF() { let d="0\nSECTION\n2\nENTITIES\n"; pts.forEach(p=>d+=`0\nPOINT\n8\n${p.lay}\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`); lns.forEach(l=>d+=`0\nLINE\n8\n${l.lay||"CAD_LINE"}\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`); d+="0\nENDSEC\n0\nEOF"; download(d,"webcad_proje.dxf"); }
+
+// 🛠️ DXF EXPORT FIX (AC1009/AutoCAD R12 Standardına indirgendi ve format hataları giderildi)
+function exportDXF() {
+    const ACI_COLORS = [1,2,3,4,5,6,30,40,50,70,80,90,110,120,130,140,150,160,170,180,190,200,210,220,230];
+    const layerColorMap = {};
+    function getLayerColor(layName) {
+        if (layerColorMap[layName] !== undefined) return layerColorMap[layName];
+        let hash = 0; for (let c of (layName||'0')) hash = (hash*31 + c.charCodeAt(0)) & 0xffff;
+        let color = ACI_COLORS[hash % ACI_COLORS.length];
+        layerColorMap[layName] = color;
+        return color;
+    }
+
+    let allLayers = new Set();
+    pts.forEach(p => allLayers.add(p.lay || '0'));
+    lns.forEach(l => allLayers.add(l.lay || '0'));
+
+    let d = '';
+    // --- HEADER (R12 / AC1009 Uyumlu - Hata vermeyen en temiz yapı) ---
+    d += '0\nSECTION\n2\nHEADER\n';
+    d += '9\n$ACADVER\n1\nAC1009\n'; 
+    d += '0\nENDSEC\n';
+
+    // --- TABLES ---
+    d += '0\nSECTION\n2\nTABLES\n';
+
+    d += '0\nTABLE\n2\nLTYPE\n70\n1\n';
+    d += '0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n';
+    d += '0\nENDTABLE\n';
+
+    let allLayersFinal = new Set(allLayers);
+    pts.forEach(p => allLayersFinal.add((p.lay||'0') + '_LBL'));
+    
+    d += '0\nTABLE\n2\nLAYER\n70\n' + allLayersFinal.size + '\n';
+    allLayersFinal.forEach(layName => {
+        let color = layName.endsWith('_LBL') ? 7 : getLayerColor(layName);
+        d += '0\nLAYER\n2\n' + layName + '\n70\n0\n62\n' + color + '\n6\nCONTINUOUS\n';
+    });
+    d += '0\nENDTABLE\n';
+
+    d += '0\nTABLE\n2\nSTYLE\n70\n1\n';
+    d += '0\nSTYLE\n2\nSTANDARD\n70\n0\n40\n0.0\n41\n1.0\n50\n0.0\n71\n0\n42\n0.2\n3\ntxt\n4\n\n';
+    d += '0\nENDTABLE\n';
+
+    d += '0\nENDSEC\n';
+
+    // --- BLOCKS (Bazı CAD programları Entities'den önce Blocks tablosunu zorunlu ister) ---
+    d += '0\nSECTION\n2\nBLOCKS\n0\nENDSEC\n';
+
+    // --- ENTITIES ---
+    d += '0\nSECTION\n2\nENTITIES\n';
+
+    pts.forEach(p => {
+        let lay = p.lay || '0';
+        let color = getLayerColor(lay);
+        let px = p.x || 0; let py = p.y || 0; let pz = p.z || 0;
+
+        d += '0\nPOINT\n8\n' + lay + '\n62\n' + color + '\n';
+        d += '10\n' + px.toFixed(6) + '\n20\n' + py.toFixed(6) + '\n30\n' + pz.toFixed(6) + '\n';
+
+        let lblLay = lay + '_LBL';
+        d += '0\nTEXT\n8\n' + lblLay + '\n62\n7\n';                        
+        d += '10\n' + (px + 0.3).toFixed(6) + '\n20\n' + (py + 0.3).toFixed(6) + '\n30\n' + pz.toFixed(6) + '\n';
+        d += '40\n0.5\n';                      
+        d += '1\n' + (p.id || 'P') + ' (' + pz.toFixed(2) + ')\n';
+    });
+
+    lns.forEach(l => {
+        let lay = l.lay || '0';
+        let color = getLayerColor(lay);
+        let fx = l.from.x || 0; let fy = l.from.y || 0; let fz = l.from.z || 0;
+        let tx = l.to.x || 0;   let ty = l.to.y || 0;   let tz = l.to.z || 0;
+
+        d += '0\nLINE\n8\n' + lay + '\n62\n' + color + '\n';
+        d += '10\n' + fx.toFixed(6) + '\n20\n' + fy.toFixed(6) + '\n30\n' + fz.toFixed(6) + '\n';
+        d += '11\n' + tx.toFixed(6) + '\n21\n' + ty.toFixed(6) + '\n31\n' + tz.toFixed(6) + '\n';
+    });
+
+    d += '0\nENDSEC\n0\nEOF\n';
+    download(d, 'webcad_proje.dxf');
+}
+
 function exportXLS() { let ws=XLSX.utils.json_to_sheet(pts); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "KoordinatListesi"); XLSX.writeFile(wb, "webcad_koordinat.xlsx"); }
 function exportXYZ() { download(pts.map(p=>`${p.id} ${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)} ${p.lay}`).join('\n'), "nokta_bulutu.xyz"); }
 function exportKML() { let k=`<?xml version="1.0" encoding="UTF-8"?><kml><Document>`; pts.forEach(p=>k+=`<Placemark><name>${p.id}</name><Point><coordinates>${p.y},${p.x},${p.z}</coordinates></Point></Placemark>`); k+=`</Document></kml>`; download(k,"google_earth.kml"); }
 function exportPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Hassas Kubaj Raporu", 14, 15); doc.autoTable({ html: '#kubajTable', startY: 23 }); doc.save("Resmi_Hacim_Hesap_Raporu.pdf"); }
+
+// ── NCN / XYZ / TXT Dosya Yükleyici ─────────────────────────────────────────
+let _kubajStatus = {nebati: false, kazi: false};
+
+function loadKubaFile(input, surface) {
+    const file = input.files[0];
+    if (!file) return;
+    const labelId = surface === 'nebati' ? 'k-lbl-nebati' : 'k-lbl-kazi';
+    const statusEl = document.getElementById(labelId);
+    if (statusEl) { statusEl.textContent = '⏳ ' + file.name + ' okunuyor...'; statusEl.style.color = '#f1c40f'; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const parsed = parseNCN(e.target.result);
+        if (parsed.length < 3) {
+            if (statusEl) { statusEl.textContent = '⚠️ Geçerli nokta bulunamadı!'; statusEl.style.color = '#e74c3c'; }
+            return alert('Dosyada geçerli nokta verisi bulunamadı!\nBeklenen format: ID  Y(Doğu)  X(Kuzey)  Z');
+        }
+        if (surface === 'nebati') { k_nebati = parsed; _kubajStatus.nebati = true; }
+        else                      { k_kazi   = parsed; _kubajStatus.kazi   = true; }
+        if (statusEl) { statusEl.textContent = '✅ ' + file.name + ' (' + parsed.length + ' nokta)'; statusEl.style.color = '#2ecc71'; }
+    };
+    reader.onerror = function() { alert('Dosya okunamadı!'); };
+    reader.readAsText(file, 'utf-8');
+}
+
+function parseNCN(text) {
+    const lines = text.split(/\r?\n/);
+    const pts = []; const seen = new Set();
+    for (const line of lines) {
+        const t = line.trim();
+        if (!t || t.startsWith('#') || t.startsWith('//')) continue;
+        const parts = t.split(/[\s,;]+/);
+        if (parts.length < 4) continue;
+        const id = parts[0];
+        const v1 = parseFloat(parts[1]), v2 = parseFloat(parts[2]), v3 = parseFloat(parts[3]);
+        if (isNaN(v1) || isNaN(v2) || isNaN(v3)) continue;
+        
+        let x, y, z;
+        if (v1 > v2) { x = v1; y = v2; z = v3; }  
+        else         { y = v1; x = v2; z = v3; }   
+        const key = x.toFixed(3) + ',' + y.toFixed(3);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pts.push({id, x, y, z});
+    }
+    return pts;
+}
 
 init();
 </script>
