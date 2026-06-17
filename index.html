@@ -185,7 +185,7 @@
             
             <div style="overflow-x:auto; margin-top:20px; max-height:350px; border:1px solid #333; border-radius:8px;">
                 <table id="kubajTable">
-                    <thead><tr style="background:#252525; color:#fff;"><th>Eşleşme No</th><th>X / Kuzey</th><th>Y / Doğu</th><th>Kot Farkı (ΔZ)</th><th>Yarma Hacmi (m³)</th><th>Dolgu Hacmi (m³)</th><th>Sefer İhtiyacı</th><th>Durum</th></tr></thead>
+                    <thead><tr style="background:#252525; color:#fff;"><th>Eşleşme No</th><th>Y / Doğu</th><th>X / Kuzey</th><th>Kot Farkı (ΔZ)</th><th>Yarma Hacmi (m³)</th><th>Dolgu Hacmi (m³)</th><th>Sefer İhtiyacı</th><th>Durum</th></tr></thead>
                     <tbody id="res-body"></tbody>
                 </table>
             </div>
@@ -203,16 +203,16 @@ let lineStartPt = null;
 let dragStartPos = null;
 
 // --- KÜBAJ GLOBAL DEĞİŞKENLERİ ---
-let k_nebati = [];   // birikmiş (çoklu dosya) nebati (orijinal) yüzey noktaları
-let k_kazi = [];     // birikmiş (çoklu dosya) kazı/dolgu sonrası yüzey noktaları
-let k_nebati_files = []; // {name, count} - yüklenen dosya geçmişi
+let k_nebati = [];   
+let k_kazi = [];     
+let k_nebati_files = []; 
 let k_kazi_files = [];
 let kubajResults = [];
-let kubajTinDebug = null; // son hesaplamanın TIN/grid debug bilgisi (istatistik amaçlı)
+let kubajTinDebug = null; 
 
 // --- ANA EKRAN ÇOKLU DOSYA TAKİBİ ---
 let fileColorPalette = ['#3498db','#e67e22','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f1c40f','#34495e'];
-let loadedFileCount = 0; // ana ekrana kaç dosya yüklendi (renk/etiket ataması için)
+let loadedFileCount = 0; 
 
 // --- BAŞLATMA ---
 function init() {
@@ -241,8 +241,9 @@ function render() {
     const lblMode = document.getElementById('labelMode').value;
 
     lns.forEach((lineObj, idx) => {
+        // HATA DÜZELTMESİ: Leaflet [Lat(X), Lng(Y)] kullanır. 
         const poly = L.polyline(
-            [[lineObj.from.y, lineObj.from.x], [lineObj.to.y, lineObj.to.x]], 
+            [[lineObj.from.x, lineObj.from.y], [lineObj.to.x, lineObj.to.y]], 
             { color: lColor, weight: parseInt(lWidth), opacity: 0.8 }
         ).addTo(lyrLns);
         lineObj.leafletPoly = poly; 
@@ -256,10 +257,11 @@ function render() {
     });
 
     pts.forEach((p, i) => {
-        const ptColorToUse = p.fileColor || pColor; // dosyadan geldiyse o dosyanın rengi, yoksa genel ayar
+        const ptColorToUse = p.fileColor || pColor;
         const iconHtml = `<div id="pt-icon-${i}" style="width:${pSize}px; height:${pSize}px; background:${ptColorToUse}; border:2px solid white; border-radius:50%; box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>`;
 
-        const marker = L.marker([p.y, p.x], {
+        // HATA DÜZELTMESİ: Leaflet [Lat(X), Lng(Y)] kullanır.
+        const marker = L.marker([p.x, p.y], {
             draggable: true,
             icon: L.divIcon({ className: 'custom-pt', html: iconHtml, iconSize: [pSize, pSize], iconAnchor: [pSize/2, pSize/2] })
         }).addTo(lyrPts);
@@ -283,13 +285,14 @@ function render() {
 
         marker.on('drag', (e) => {
             const curr = e.target.getLatLng();
-            pts[i].y = curr.lat;
-            pts[i].x = curr.lng;
-            document.getElementById(`iy-${i}`).value = curr.lat.toFixed(3);
-            document.getElementById(`ix-${i}`).value = curr.lng.toFixed(3);
+            // HATA DÜZELTMESİ: curr.lat -> X (Kuzey), curr.lng -> Y (Doğu)
+            pts[i].x = curr.lat;
+            pts[i].y = curr.lng;
+            document.getElementById(`iy-${i}`).value = curr.lng.toFixed(3);
+            document.getElementById(`ix-${i}`).value = curr.lat.toFixed(3);
 
-            const dY = (curr.lat - dragStartPos.lat) * 100;
-            const dX = (curr.lng - dragStartPos.lng) * 100;
+            const dX = (curr.lat - dragStartPos.lat) * 100;
+            const dY = (curr.lng - dragStartPos.lng) * 100;
             document.getElementById('delta-box').innerHTML = `<b>${p.id}</b> ΔY:${dY.toFixed(1)}cm | ΔX:${dX.toFixed(1)}cm`;
             updateConnectedLines(p);
         });
@@ -333,7 +336,8 @@ function renderStylesOnly() {
 function updateConnectedLines(pointObj) {
     lns.forEach(l => {
         if (l.from === pointObj || l.to === pointObj) {
-            if(l.leafletPoly) { l.leafletPoly.setLatLngs([[l.from.y, l.from.x], [l.to.y, l.to.x]]); }
+            // HATA DÜZELTMESİ: [Lat(X), Lng(Y)]
+            if(l.leafletPoly) { l.leafletPoly.setLatLngs([[l.from.x, l.from.y], [l.to.x, l.to.y]]); }
         }
     });
 }
@@ -342,7 +346,8 @@ function updatePtFromTable(idx, axis, val) {
     const v = parseFloat(val);
     if(axis === 'y') pts[idx].y = v;
     if(axis === 'x') pts[idx].x = v;
-    if(pts[idx].leafletMarker) pts[idx].leafletMarker.setLatLng([pts[idx].y, pts[idx].x]);
+    // HATA DÜZELTMESİ: [Lat(X), Lng(Y)]
+    if(pts[idx].leafletMarker) pts[idx].leafletMarker.setLatLng([pts[idx].x, pts[idx].y]);
     updateConnectedLines(pts[idx]);
 }
 
@@ -398,7 +403,8 @@ function setMode(m) {
 
 function onMapClick(e) {
     if(mode === 'add') {
-        pts.push({ id: "P" + (pts.length + 1), y: e.latlng.lat, x: e.latlng.lng, z: 0 });
+        // HATA DÜZELTMESİ: e.latlng.lat -> X (Kuzey), e.latlng.lng -> Y (Doğu)
+        pts.push({ id: "P" + (pts.length + 1), y: e.latlng.lng, x: e.latlng.lat, z: 0 });
         render(); highlightRow(pts.length - 1);
     }
 }
@@ -427,20 +433,23 @@ function highlightRow(idx) {
 }
 
 function zoomAll() {
-    if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.y,p.x]))).getBounds().pad(0.1));
+    if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.x, p.y]))).getBounds().pad(0.1));
 }
 
 // --- DOSYA YÖNETİMİ VE PARSERLAR ---
-// NOT: loadFile artık ÇOKLU DOSYA destekler. Yeni bir dosya seçildiğinde
-// mevcut pts/lns dizileri SİLİNMEZ, yeni noktalar üzerine EKLENİR (append).
-// Her dosyaya kendi rengi ve "fileTag" (kaynak adı) atanır, böylece 2-3-4-5
-// farklı NCN dosyası üst üste yüklenip ekranda ayırt edilebilir.
 function loadFile(input) {
     const files = Array.from(input.files || []);
     if(!files.length) return;
 
-    // Birden çok dosya seçilmişse hepsini sırayla işleyeceğiz
     let pending = files.length;
+    let format = 'YXZ'; // Varsayılan Netcad
+    
+    // Metin bazlı dosyalar varsa kullanıcıya koordinat formatını sor
+    const hasTextFiles = files.some(f => !f.name.match(/\.(xls|xlsx|geojson|json|kml)$/i));
+    if(hasTextFiles) {
+        const isYXZ = confirm("Veri formatı seçimi:\n\n[Tamam/OK] => Y (Doğu), X (Kuzey), Z (Standart Netcad)\n[İptal/Cancel] => X (Kuzey), Y (Doğu), Z");
+        format = isYXZ ? 'YXZ' : 'XYZ';
+    }
 
     files.forEach(file => {
         const ext = file.name.split('.').pop().toLowerCase();
@@ -457,40 +466,32 @@ function loadFile(input) {
             const content = e.target.result;
             const tempArr = [];
 
-            if (ext === 'csv') parseCSV(content, tempArr);
+            if (ext === 'csv') parseCSV(content, tempArr, format);
             else if (ext === 'kml') parseKML(content, tempArr);
             else if (ext === 'geojson' || ext === 'json') parseGeoJSON(content, tempArr);
-            else parseTextData(content, tempArr); // NCN, XYZ, TXT fallback
+            else parseTextData(content, tempArr, format); 
 
-            // Bu dosyaya özel renk ve etiket ata (üst üste görünüm + ayırt edilebilirlik)
             const color = fileColorPalette[loadedFileCount % fileColorPalette.length];
             const fileTag = file.name;
             loadedFileCount++;
 
             tempArr.forEach(p => { p.fileTag = fileTag; p.fileColor = color; });
 
-            // Aynı isimli nokta ID çakışmasını önlemek için, eklenen dosyanın
-            // noktalarına dosya sırası önekı eklenir (sadece çakışma varsa)
             const existingIds = new Set(pts.map(p => p.id));
             tempArr.forEach(p => {
-                if(existingIds.has(p.id)) {
-                    p.id = p.id + "_F" + loadedFileCount;
-                }
+                if(existingIds.has(p.id)) { p.id = p.id + "_F" + loadedFileCount; }
                 existingIds.add(p.id);
             });
 
-            pts = pts.concat(tempArr); // ESKİ NOKTALAR SİLİNMEZ, YENİLER EKLENİR
+            pts = pts.concat(tempArr);
 
             pending--;
-            if(pending === 0) {
-                render(); zoomAll(); input.value = '';
-            }
+            if(pending === 0) { render(); zoomAll(); input.value = ''; }
         };
         reader.readAsText(file, "UTF-8");
     });
 }
 
-// Ana ekrandaki nokta bulutunu tamamen temizlemek istenirse kullanılır
 function clearAllPoints() {
     if(!pts.length) return;
     if(confirm(`Ekrandaki TÜM noktalar (${pts.length} adet) ve hatlar silinsin mi?`)) {
@@ -499,33 +500,41 @@ function clearAllPoints() {
     }
 }
 
-function parseTextData(data, targetArray) {
+function parseTextData(data, targetArray, format) {
     data.split('\n').forEach(line => {
         let d = line.trim().replace(/,/g, '.').split(/\s+/);
         if(d.length >= 3) {
-            let id = d[0], y = parseFloat(d[1]), x = parseFloat(d[2]), z = parseFloat(d[3] || 0);
-            if(isNaN(parseFloat(id)) || d.length > 3) {
-                 // ID Y X Z (Zaten doğru atandı)
-            } else {
-                 // Y X Z (Sadece koordinat)
+            let id = d[0], col1 = parseFloat(d[1]), col2 = parseFloat(d[2]), z = parseFloat(d[3] || 0);
+            if(isNaN(parseFloat(id)) || d.length > 3) { } 
+            else {
                  id = "P" + (targetArray.length + 1); 
-                 y = parseFloat(d[0]); x = parseFloat(d[1]); z = parseFloat(d[2]||0); 
+                 col1 = parseFloat(d[0]); col2 = parseFloat(d[1]); z = parseFloat(d[2]||0); 
             }
-            if(!isNaN(y) && !isNaN(x)) targetArray.push({ id: id, y: y, x: x, z: z });
+            if(!isNaN(col1) && !isNaN(col2)) {
+                let y_east, x_north;
+                if(format === 'YXZ') { y_east = col1; x_north = col2; } 
+                else { x_north = col1; y_east = col2; }
+                targetArray.push({ id: id, y: y_east, x: x_north, z: z });
+            }
         }
     });
 }
 
-function parseCSV(data, targetArray) {
+function parseCSV(data, targetArray, format) {
     const lines = data.split('\n');
     lines.forEach((line, i) => {
-        if(i===0 && line.toLowerCase().match(/[a-z]/i)) return; // Header atla
-        const d = line.trim().replace(/,/g, '.').split(/[\s;]+/); // Noktalı virgül veya boşluk ile ayır
+        if(i===0 && line.toLowerCase().match(/[a-z]/i)) return; 
+        const d = line.trim().replace(/,/g, '.').split(/[\s;]+/); 
         if(d.length >= 3) {
-            let id = d[0], y = parseFloat(d[1]), x = parseFloat(d[2]), z = parseFloat(d[3] || 0);
+            let id = d[0], col1 = parseFloat(d[1]), col2 = parseFloat(d[2]), z = parseFloat(d[3] || 0);
             if(isNaN(parseFloat(id)) || d.length > 3) { } 
-            else { id = "P" + (targetArray.length + 1); y = parseFloat(d[0]); x = parseFloat(d[1]); z = parseFloat(d[2]||0); }
-            if(!isNaN(y) && !isNaN(x)) targetArray.push({ id: id, y: y, x: x, z: z });
+            else { id = "P" + (targetArray.length + 1); col1 = parseFloat(d[0]); col2 = parseFloat(d[1]); z = parseFloat(d[2]||0); }
+            if(!isNaN(col1) && !isNaN(col2)) {
+                let y_east, x_north;
+                if(format === 'YXZ') { y_east = col1; x_north = col2; } 
+                else { x_north = col1; y_east = col2; }
+                targetArray.push({ id: id, y: y_east, x: x_north, z: z });
+            }
         }
     });
 }
@@ -540,7 +549,8 @@ function parseKML(xmlStr, targetArray) {
         const coords = pm.getElementsByTagName("coordinates")[0]?.textContent.trim();
         if(coords) {
             const c = coords.split(',');
-            targetArray.push({ id: name, x: parseFloat(c[0]), y: parseFloat(c[1]), z: parseFloat(c[2]||0) });
+            // HATA DÜZELTMESİ: KML formatı -> Boylam(Doğu/Y), Enlem(Kuzey/X)
+            targetArray.push({ id: name, y: parseFloat(c[0]), x: parseFloat(c[1]), z: parseFloat(c[2]||0) });
         }
     }
 }
@@ -552,9 +562,10 @@ function parseGeoJSON(jsonStr, targetArray) {
         features.forEach(f => {
             if(f.geometry && f.geometry.type === 'Point') {
                 const c = f.geometry.coordinates;
+                // HATA DÜZELTMESİ: GeoJSON formatı -> Boylam(Doğu/Y), Enlem(Kuzey/X)
                 targetArray.push({
                     id: f.properties?.name || f.properties?.id || "P"+(targetArray.length+1),
-                    x: c[0], y: c[1], z: c[2] || 0
+                    y: c[0], x: c[1], z: c[2] || 0
                 });
             }
         });
@@ -566,7 +577,7 @@ function exportData(type) {
     let content = "", filename = "Proje." + type, mime = "text/plain";
 
     if(type === 'xls') {
-        const ws = XLSX.utils.json_to_sheet(pts.map(p => ({"No":p.id, "Y":p.y, "X":p.x, "Z":p.z})));
+        const ws = XLSX.utils.json_to_sheet(pts.map(p => ({"No":p.id, "Y (Dogu)":p.y, "X (Kuzey)":p.x, "Z":p.z})));
         const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Noktalar");
         XLSX.writeFile(wb, "Proje.xlsx"); return;
     } 
@@ -578,16 +589,17 @@ function exportData(type) {
     }
     else if (type === 'dxf') {
         content = "0\nSECTION\n2\nENTITIES\n";
-        pts.forEach(p => content += `0\nPOINT\n8\nNOKTA\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`);
-        lns.forEach(l => content += `0\nLINE\n8\nHAT\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`);
+        // HATA DÜZELTMESİ: DXF 10 -> X (Doğu/Y), 20 -> Y (Kuzey/X)
+        pts.forEach(p => content += `0\nPOINT\n8\nNOKTA\n10\n${p.y}\n20\n${p.x}\n30\n${p.z}\n`);
+        lns.forEach(l => content += `0\nLINE\n8\nHAT\n10\n${l.from.y}\n20\n${l.from.x}\n11\n${l.to.y}\n21\n${l.to.x}\n`);
         content += "0\nENDSEC\n0\nEOF\n";
         mime = "application/dxf";
     }
     else if (type === 'kml') {
         content = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
-    ${pts.map(p => `<Placemark><name>${p.id}</name><Point><coordinates>${p.x},${p.y},${p.z}</coordinates></Point></Placemark>`).join('')}
-    ${lns.map(l => `<Placemark><LineString><coordinates>${l.from.x},${l.from.y},0 ${l.to.x},${l.to.y},0</coordinates></LineString></Placemark>`).join('')}
+    ${pts.map(p => `<Placemark><name>${p.id}</name><Point><coordinates>${p.y},${p.x},${p.z}</coordinates></Point></Placemark>`).join('')}
+    ${lns.map(l => `<Placemark><LineString><coordinates>${l.from.y},${l.from.x},0 ${l.to.y},${l.to.x},0</coordinates></LineString></Placemark>`).join('')}
 </Document></kml>`;
         mime = "application/vnd.google-earth.kml+xml";
     }
@@ -595,9 +607,9 @@ function exportData(type) {
         const fc = {
             type: "FeatureCollection",
             features: pts.map(p => ({
-                type: "Feature", properties: { name: p.id, z: p.z }, geometry: { type: "Point", coordinates: [p.x, p.y, p.z] }
+                type: "Feature", properties: { name: p.id, z: p.z }, geometry: { type: "Point", coordinates: [p.y, p.x, p.z] }
             })).concat(lns.map(l => ({
-                type: "Feature", properties: { type: "line" }, geometry: { type: "LineString", coordinates: [[l.from.x, l.from.y], [l.to.x, l.to.y]] }
+                type: "Feature", properties: { type: "line" }, geometry: { type: "LineString", coordinates: [[l.from.y, l.from.x], [l.to.y, l.to.x]] }
             })))
         };
         content = JSON.stringify(fc);
@@ -627,6 +639,14 @@ function loadKubaFile(input, target) {
     if(!files.length) return;
 
     let pending = files.length;
+    let format = 'YXZ';
+    
+    const hasTextFiles = files.some(f => !f.name.match(/\.(xls|xlsx|geojson|json|kml)$/i));
+    if(hasTextFiles) {
+        const isYXZ = confirm("KÜBAJ MODÜLÜ - Veri formatı seçimi:\n\n[Tamam/OK] => Y (Doğu), X (Kuzey), Z\n[İptal/Cancel] => X (Kuzey), Y (Doğu), Z");
+        format = isYXZ ? 'YXZ' : 'XYZ';
+    }
+    
     const newlyLoaded = [];
 
     files.forEach(file => {
@@ -637,12 +657,11 @@ function loadKubaFile(input, target) {
             const data = e.target.result;
             let tempArr = [];
 
-            if (ext === 'csv') parseCSV(data, tempArr);
+            if (ext === 'csv') parseCSV(data, tempArr, format);
             else if (ext === 'kml') parseKML(data, tempArr);
             else if (ext === 'geojson' || ext === 'json') parseGeoJSON(data, tempArr);
-            else parseTextData(data, tempArr);
+            else parseTextData(data, tempArr, format);
 
-            // ÖNEMLİ: target dizisine EKLENİR (append), eski dosyaların noktaları SİLİNMEZ.
             if(target === 'nebati') {
                 k_nebati = k_nebati.concat(tempArr);
                 k_nebati_files.push({ name: file.name, count: tempArr.length });
@@ -663,7 +682,7 @@ function loadKubaFile(input, target) {
         reader.readAsText(file, "UTF-8");
     });
 
-    input.value = ''; // aynı dosyaları tekrar seçebilmek için input'u sıfırla
+    input.value = ''; 
 }
 
 function updateKubaFileList(target) {
@@ -707,13 +726,10 @@ function toggleKubajMethod() {
 // ==========================================
 // --- DELAUNAY TRIANGULATION (Bowyer-Watson) ---
 // ==========================================
-// Basit ama sağlam bir 2D Delaunay triangulation uygulaması.
-// Girdi: [{x,y,z}, ...]  Çıktı: [[i0,i1,i2], ...] (points dizisindeki indeksler)
 function delaunayTriangulate(points) {
     const n = points.length;
     if(n < 3) return [];
 
-    // Süper üçgen için sınırları bul (tüm noktaları kapsayan büyük üçgen)
     let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
     for(const p of points) {
         if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
@@ -723,7 +739,6 @@ function delaunayTriangulate(points) {
     const dMax = Math.max(dx,dy,1) * 10;
     const midX = (minX+maxX)/2, midY=(minY+maxY)/2;
 
-    // Çalışma noktaları: orijinal + 3 süper üçgen köşesi
     const pts2 = points.map(p => ({x:p.x, y:p.y}));
     const superA = pts2.length;
     const superB = pts2.length+1;
@@ -736,7 +751,7 @@ function delaunayTriangulate(points) {
         const A = pts2[ia], B = pts2[ib], C = pts2[ic];
         const ax=A.x, ay=A.y, bx=B.x, by=B.y, cx=C.x, cy=C.y;
         const d = 2*(ax*(by-cy) + bx*(cy-ay) + cx*(ay-by));
-        if(Math.abs(d) < 1e-12) return null; // dejenere (çok ince/aynı doğru üstünde)
+        if(Math.abs(d) < 1e-12) return null;
         const ux = ((ax*ax+ay*ay)*(by-cy) + (bx*bx+by*by)*(cy-ay) + (cx*cx+cy*cy)*(ay-by)) / d;
         const uy = ((ax*ax+ay*ay)*(cx-bx) + (bx*bx+by*by)*(ax-cx) + (cx*cx+cy*cy)*(bx-ax)) / d;
         const r2 = (ax-ux)*(ax-ux) + (ay-uy)*(ay-uy);
@@ -748,7 +763,6 @@ function delaunayTriangulate(points) {
     for(let i=0; i<pts2.length-3; i++) {
         const p = pts2[i];
         const badTriangles = [];
-        const circumData = [];
 
         for(const tri of triangles) {
             const cc = circumcircle(tri[0], tri[1], tri[2]);
@@ -757,7 +771,6 @@ function delaunayTriangulate(points) {
             if(distSq <= cc.r2 + 1e-9) badTriangles.push(tri);
         }
 
-        // Bad üçgenlerin sınır kenarlarını bul (polygon hole boundary)
         const edgeCount = new Map();
         function edgeKey(a,b) { return a<b ? a+'_'+b : b+'_'+a; }
         const edgeList = [];
@@ -775,28 +788,18 @@ function delaunayTriangulate(points) {
             if(edgeCount.get(k) === 1 && !seen.has(k)) { boundary.push(e); seen.add(k); }
         }
 
-        // Bad üçgenleri çıkar
         triangles = triangles.filter(tri => !badTriangles.includes(tri));
 
-        // Yeni nokta ile sınır kenarlarından yeni üçgenler oluştur
         for(const e of boundary) {
             triangles.push([e[0], e[1], i]);
         }
     }
 
-    // Süper üçgen köşelerini içeren üçgenleri at
     triangles = triangles.filter(tri => tri[0]<superA && tri[1]<superA && tri[2]<superA);
-
     return triangles;
 }
 
-// Bir TIN (nokta dizisi + üçgen indeksleri) içinde verilen (x,y) için
-// barycentric interpolasyon ile Z döndürür. Nokta hiçbir üçgenin içinde
-// değilse null döner (extrapolasyon yapılmaz - Civil3D de TIN dışını hesaba katmaz).
 function buildTinIndex(points, triangles) {
-    // Basit ama yeterince hızlı: üçgenleri bounding-box ile önceden hesapla,
-    // grid taramasında sırayla test ederiz. Nokta sayısı pratik sahalarda
-    // (binlerce nokta) bu yaklaşım tarayıcıda sorunsuz çalışır.
     return triangles.map(tri => {
         const A = points[tri[0]], B = points[tri[1]], C = points[tri[2]];
         return {
@@ -811,7 +814,6 @@ function interpolateZ(tinIndex, x, y) {
     for(const t of tinIndex) {
         if(x < t.minX || x > t.maxX || y < t.minY || y > t.maxY) continue;
         const {A,B,C} = t;
-        // Barycentric koordinatlar (standart formül)
         const denom = (B.x-A.x)*(C.y-A.y) - (C.x-A.x)*(B.y-A.y);
         if(Math.abs(denom) < 1e-12) continue;
         const l1 = ((B.y-C.y)*(x-C.x) + (C.x-B.x)*(y-C.y)) / denom;
@@ -826,7 +828,7 @@ function interpolateZ(tinIndex, x, y) {
 }
 
 // ==========================================
-// --- TIN-TIN HACİM HESABI (Civil3D benzeri grid tarama) ---
+// --- TIN-TIN HACİM HESABI ---
 // ==========================================
 function calculateTinVolume(nebati, kazi, gridStep) {
     if(nebati.length < 3 || kazi.length < 3) {
@@ -838,7 +840,6 @@ function calculateTinVolume(nebati, kazi, gridStep) {
     const tinN = buildTinIndex(nebati, triN);
     const tinK = buildTinIndex(kazi, triK);
 
-    // Ortak (kesişen) XY alanını bul — her iki yüzeyin de kapladığı bölge
     const bx1 = Math.max(Math.min(...nebati.map(p=>p.x)), Math.min(...kazi.map(p=>p.x)));
     const bx2 = Math.min(Math.max(...nebati.map(p=>p.x)), Math.max(...kazi.map(p=>p.x)));
     const by1 = Math.max(Math.min(...nebati.map(p=>p.y)), Math.min(...kazi.map(p=>p.y)));
@@ -848,7 +849,7 @@ function calculateTinVolume(nebati, kazi, gridStep) {
         throw new Error("İki yüzeyin XY alanları kesişmiyor! Aynı koordinat bölgesine ait dosyalar yüklediğinizden emin olun.");
     }
 
-    const step = Math.max(gridStep, 0.05); // çok küçük adımda tarayıcı donmasın
+    const step = Math.max(gridStep, 0.05); 
     const cellArea = step * step;
 
     let tCut = 0, tFill = 0;
@@ -858,7 +859,6 @@ function calculateTinVolume(nebati, kazi, gridStep) {
     const nx = Math.ceil((bx2-bx1)/step);
     const ny = Math.ceil((by2-by1)/step);
 
-    // Çok büyük gridlerde tarayıcıyı kilitlememek için pratik bir üst sınır koy
     const totalCells = nx*ny;
     if(totalCells > 400000) {
         throw new Error(`Grid hücre sayısı çok yüksek (${totalCells.toLocaleString('tr')}). Lütfen "Grid Tarama Aralığı"nı büyütün (örn. 1.0 - 2.0 m).`);
@@ -875,7 +875,7 @@ function calculateTinVolume(nebati, kazi, gridStep) {
 
             const zN = interpolateZ(tinN, x, y);
             const zK = interpolateZ(tinK, x, y);
-            if(zN === null || zK === null) continue; // iki TIN'in de kapsadığı noktalar sayılır
+            if(zN === null || zK === null) continue; 
 
             matchedCount++;
             const deltaZ = zK - zN;
@@ -887,7 +887,7 @@ function calculateTinVolume(nebati, kazi, gridStep) {
 
             id++;
             if(id <= 100) {
-                results.push({ id, x, y, dz: deltaZ, cut, fill, trips: 0, status });
+                results.push({ id, y, x, dz: deltaZ, cut, fill, trips: 0, status });
             }
         }
     }
@@ -907,11 +907,8 @@ function calculateRouteVolume() {
     if(method === 'tin') {
         const gridStep = parseFloat(document.getElementById('k-area').value) || 1.0;
         let vol;
-        try {
-            vol = calculateTinVolume(k_nebati, k_kazi, gridStep);
-        } catch(err) {
-            return alert(err.message);
-        }
+        try { vol = calculateTinVolume(k_nebati, k_kazi, gridStep); } 
+        catch(err) { return alert(err.message); }
 
         const tBody = document.getElementById('res-body');
         tBody.innerHTML = '';
@@ -922,8 +919,8 @@ function calculateRouteVolume() {
             kubajResults.push(r);
             tBody.innerHTML += `<tr>
                 <td>Grid-${r.id}</td>
-                <td>${r.x.toFixed(3)}</td>
                 <td>${r.y.toFixed(3)}</td>
+                <td>${r.x.toFixed(3)}</td>
                 <td>${r.dz > 0 ? '+'+r.dz.toFixed(2) : r.dz.toFixed(2)}</td>
                 <td style="color:var(--danger)">${r.cut.toFixed(2)}</td>
                 <td style="color:var(--success)">${r.fill.toFixed(2)}</td>
@@ -940,13 +937,13 @@ function calculateRouteVolume() {
         document.getElementById('r-fill').innerText = vol.tFill.toFixed(2) + " m³";
         document.getElementById('r-trip').innerText = totalTrips + " Sefer";
         document.getElementById('res-area').style.display = 'block';
-        debugDiv.innerText = `Yöntem: Delaunay TIN/Grid Tarama | Grid hücre boyutu: ${vol.gridCellArea.toFixed(3)} m² | Taranan örnek: ${vol.sampleCount.toLocaleString('tr')} | Her iki yüzeyde de geçerli (kesişen) örnek: ${vol.matchedCount.toLocaleString('tr')}`;
+        debugDiv.innerText = `Yöntem: Delaunay TIN/Grid Tarama | Grid hücre boyutu: ${vol.gridCellArea.toFixed(3)} m² | Taranan örnek: ${vol.sampleCount.toLocaleString('tr')} | Kesişen örnek: ${vol.matchedCount.toLocaleString('tr')}`;
 
         alert(`TIN/Grid Hesaplama Tamamlandı!\nNet Kazı (Yarma): ${vol.tCut.toFixed(2)} m³\nNet Dolgu: ${vol.tFill.toFixed(2)} m³\nNet Fark: ${(vol.tCut-vol.tFill).toFixed(2)} m³`);
         return;
     }
 
-    // --- ESKİ YÖNTEM: Nokta Eşleştirme (Nearest-Neighbor) ---
+    // --- ESKİ YÖNTEM ---
     let tCut = 0, tFill = 0;
     const tBody = document.getElementById('res-body');
     tBody.innerHTML = '';
@@ -954,7 +951,6 @@ function calculateRouteVolume() {
 
     const gridArea = parseFloat(document.getElementById('k-area').value) || 1.0; 
     const tolerance = parseFloat(document.getElementById('k-tol').value) || 1.0;
-
     let matchedCount = 0;
 
     k_nebati.forEach(p_orig => {
@@ -963,10 +959,7 @@ function calculateRouteVolume() {
 
         k_kazi.forEach(p_kazi => {
             let dist = Math.sqrt(Math.pow(p_kazi.x - p_orig.x, 2) + Math.pow(p_kazi.y - p_orig.y, 2));
-            if(dist <= minDist) {
-                minDist = dist;
-                p_final = p_kazi;
-            }
+            if(dist <= minDist) { minDist = dist; p_final = p_kazi; }
         });
         
         if(p_final) {
@@ -976,25 +969,18 @@ function calculateRouteVolume() {
 
             let cut = 0, fill = 0, status = "Denge";
             
-            if(volume < 0) {
-                cut = Math.abs(volume);
-                tCut += cut;
-                status = "Ariyet/Depo Kazı Atımı";
-            } else if (volume > 0) {
-                fill = volume;
-                tFill += fill;
-                status = "Dışarıdan Dolgu Temini";
-            }
+            if(volume < 0) { cut = Math.abs(volume); tCut += cut; status = "Ariyet/Depo Kazı Atımı"; } 
+            else if (volume > 0) { fill = volume; tFill += fill; status = "Dışarıdan Dolgu Temini"; }
 
             let trips = Math.ceil((cut + fill) / cap);
             
-            kubajResults.push({ id: matchedCount, x: p_orig.x, y: p_orig.y, dz: deltaZ, cut: cut, fill: fill, trips: trips, status: status });
+            kubajResults.push({ id: matchedCount, y: p_orig.y, x: p_orig.x, dz: deltaZ, cut: cut, fill: fill, trips: trips, status: status });
 
             if (matchedCount <= 100) {
                 tBody.innerHTML += `<tr>
                     <td>Grid-${matchedCount}</td>
-                    <td>${p_orig.x.toFixed(3)}</td>
                     <td>${p_orig.y.toFixed(3)}</td>
+                    <td>${p_orig.x.toFixed(3)}</td>
                     <td>${deltaZ > 0 ? '+'+deltaZ.toFixed(2) : deltaZ.toFixed(2)}</td>
                     <td style="color:var(--danger)">${cut.toFixed(2)}</td>
                     <td style="color:var(--success)">${fill.toFixed(2)}</td>
@@ -1027,9 +1013,9 @@ function calculateRouteVolume() {
 function exportKubajCSV() {
     if(kubajResults.length === 0) return alert("Dışa aktarılacak hesaplama bulunamadı.");
     
-    let csv = "Eslesme No,X (Kuzey),Y (Dogu),Kot Farki,Yarma (m3),Dolgu (m3),Sefer Ihtiyaci,Lojistik Plani\n";
+    let csv = "Eslesme No,Y (Dogu),X (Kuzey),Kot Farki,Yarma (m3),Dolgu (m3),Sefer Ihtiyaci,Lojistik Plani\n";
     kubajResults.forEach(r => {
-        csv += `${r.id},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.dz.toFixed(3)},${r.cut.toFixed(2)},${r.fill.toFixed(2)},${r.trips},${r.status}\n`;
+        csv += `${r.id},${r.y.toFixed(3)},${r.x.toFixed(3)},${r.dz.toFixed(3)},${r.cut.toFixed(2)},${r.fill.toFixed(2)},${r.trips},${r.status}\n`;
     });
     
     download(csv, "Kubaj_Lojistik_Raporu.csv", "text/csv");
