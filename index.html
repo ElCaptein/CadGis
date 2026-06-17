@@ -2,259 +2,176 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile Cad Pro v2.5 - Mühendislik & Otomasyon Platformu</title>
+    <title>CAD Pro v2.0 - Ultimate Surveyor (Kübaj Modüllü)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
-        :root { 
-            --brand: #e67e22; --dark: #141414; --sidebar-bg: rgba(26, 26, 26, 0.95); 
-            --danger: #e74c3c; --success: #2ecc71; --info: #3498db; 
-            --measure: #f1c40f; --area: #9b59b6; --profile: #8e44ad; --text-light: #eceff1;
-        }
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; overflow: hidden; height: 100vh; display: flex; flex-direction: column; color: var(--text-light); }
-        #map { flex: 1; z-index: 1; background: #0b0b0b; cursor: crosshair; }
-
-        /* Sidebar Dark Premium Arayüz */
-        .sidebar { position: absolute; top: 10px; left: 10px; width: 360px; background: var(--sidebar-bg); border-radius: 12px; z-index: 2000; box-shadow: 0 15px 35px rgba(0,0,0,0.8); max-height: 90vh; overflow-y: auto; border: 1px solid #333; backdrop-filter: blur(10px); }
-        .acc-item { border-bottom: 1px solid #2a2a2a; }
-        .acc-header { background: #222; padding: 14px 18px; cursor: pointer; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; color: #bbb; transition: 0.2s; }
-        .acc-header:hover { background: #2c2c2c; color: #fff; }
-        .acc-content { padding: 14px; display: none; background: #1a1a1a; }
-        .acc-item.active .acc-content { display: block; }
-        .acc-item.active .acc-header { color: var(--brand); border-left: 4px solid var(--brand); background: #1c1c1c; }
-
-        /* Alt Koordinat ve Editör Paneli */
-        .bottom-acc { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3000; background: #1a1a1a; border-top: 4px solid var(--brand); transition: 0.3s; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); }
-        .bottom-header { background: var(--dark); color: #fff; padding: 12px 20px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; letter-spacing: 0.5px; border-bottom: 1px solid #2a2a2a; }
-        .bottom-content { height: 0; overflow: hidden; transition: 0.3s; display: flex; flex-direction: column; }
-        .bottom-acc.open .bottom-content { height: 38vh; }
-        .table-wrap { flex: 1; overflow: auto; background: #111; }
-
-        table { width: 100%; border-collapse: collapse; font-size: 11px; color: #ccc; }
-        th { position: sticky; top: 0; background: #252525; padding: 12px; z-index: 10; border-bottom: 2px solid #333; color: var(--brand); font-weight: 600; }
-        tr.pt-row { border-bottom: 1px solid #222; transition: 0.2s; cursor: pointer; }
-        tr.pt-row:hover { background: #291f16; color: #fff; }
-        td { padding: 10px; text-align: center; }
+        :root { --brand: #e67e22; --dark: #2c3e50; --bg: #ecf0f1; --highlight: #f1c40f; --success: #2ecc71; --danger: #e74c3c; --info: #3498db; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #333; overflow: hidden; }
         
-        input, select { width: 100%; padding: 10px; background: #252525; border: 1px solid #3c3c3c; border-radius: 6px; margin: 5px 0; box-sizing: border-box; font-size: 12px; color: #fff; transition: 0.3s; }
-        input:focus, select:focus { border-color: var(--brand); outline: none; background: #2d2d2d; }
-        label { font-size: 11px; color: #aaa; font-weight: 500; margin-top: 6px; display: block; }
-
-        .btn { width: 100%; padding: 11px; margin: 5px 0; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; background: #3a3a3a; text-transform: uppercase; }
-        .btn:hover { filter: brightness(1.15); }
-        .btn:active { transform: scale(0.97); }
-        .btn-active { background: var(--brand) !important; box-shadow: 0 0 12px rgba(230,126,34,0.5); color: #fff !important; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-
-        #info-panel { position: absolute; bottom: 65px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); color: #2ecc71; padding: 12px 30px; border-radius: 30px; font-family: 'Courier New', monospace; z-index: 4000; display: none; text-align: center; font-size: 13px; font-weight: bold; border: 1px solid #2ecc71; box-shadow: 0 0 20px rgba(46,204,113,0.3); pointer-events: none; }
-        #snap-cursor { position: absolute; width: 20px; height: 20px; border: 2px solid #f1c40f; pointer-events: none; z-index: 5000; display: none; transform: translate(-50%, -50%); box-shadow: 0 0 8px #f1c40f; }
+        #map { flex-grow: 1; cursor: crosshair; background: #1a1a1a; }
         
-        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1e1e1e; z-index: 5000; border-radius: 12px; padding: 25px; width: 380px; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid #333; }
-        .modal h3 { margin-top: 0; color: var(--brand); font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        /* Sol Panel */
+        .sidebar { position: absolute; top: 10px; left: 10px; width: 340px; background: rgba(255,255,255,0.98); padding: 10px; border-radius: 8px; z-index: 2000; box-shadow: 0 4px 15px rgba(0,0,0,0.6); max-height: 90vh; overflow-y: auto; border-left: 5px solid var(--brand); }
+        .section-title { font-size: 11px; font-weight: 800; color: #7f8c8d; border-bottom: 2px solid #ecf0f1; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        #page-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 9999; overflow-y: auto; padding: 40px; box-sizing: border-box; }
-        #profile-chart-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; z-index: 5000; padding: 25px; width: 85%; height: 65vh; border-radius: 14px; box-shadow: 0 0 60px rgba(0,0,0,0.9); border: 1px solid #333; flex-direction: column; }
+        .btn { width: 100%; padding: 7px; margin: 3px 0; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: 600; font-size: 11px; transition: 0.2s; background: #34495e; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+        .btn-active { background: var(--brand) !important; box-shadow: inset 0 0 0 2px white; }
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .btn-small { font-size: 10px; padding: 4px; }
+
+        /* Stil Kontrolleri */
+        .style-control { display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+        input[type=range] { width: 60px; }
+        input[type=color] { border: none; width: 25px; height: 20px; cursor: pointer; padding: 0; }
+        
+        /* Alt Tablo */
+        #table-wrapper { height: 25vh; background: white; z-index: 2000; overflow: auto; border-top: 4px solid var(--dark); position: relative; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: 'Consolas', monospace; }
+        th { position: sticky; top: 0; background: #bdc3c7; padding: 6px; z-index: 10; border-bottom: 2px solid #7f8c8d; }
+        td { padding: 4px; border-bottom: 1px solid #eee; text-align: center; }
+        .selected-row { background-color: var(--highlight) !important; font-weight: bold; }
+        input.coord-inp { width: 90%; text-align: center; border: 1px solid #ddd; padding: 2px; border-radius: 3px; }
+
+        /* Anlık Delta Kutusu */
+        #delta-box { position: absolute; bottom: 26vh; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; z-index: 3000; display: none; border: 1px solid var(--highlight); pointer-events: none; }
+        .cad-label { font-weight: bold; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; font-size: 11px; background: none; border: none; box-shadow: none; }
+
+        /* Kübaj Ekranı Modülü CSS */
+        #page-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 15, 0.95); z-index: 9999; padding: 40px; box-sizing: border-box; color: white; overflow-y: auto; font-family: 'Segoe UI', sans-serif; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; }
+        #page-overlay input[type=number], #page-overlay input[type=file] { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #555; background: #222; color: #fff; box-sizing: border-box;}
+        #kubajTable th, #kubajTable td { border: 1px solid #444; color: #ccc; }
+        #kubajTable th { background: #252525; color: #fff; }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
-<div id="snap-cursor"></div>
-<div id="info-panel"></div>
+<div id="delta-box">ΔY: 0.00 | ΔX: 0.00</div>
 
 <div class="sidebar">
-    <div style="padding:12px; display:flex; gap:8px; background:#1e1e1e; border-radius:12px 12px 0 0; border-bottom:1px solid #2a2a2a;">
-        <button class="btn" style="background:#d35400" onclick="undo()">⬅️ GERİ AL</button>
-        <button class="btn" style="background:var(--dark); border:1px solid #444;" onclick="zoomAll()">🎯 SIĞDIR</button>
-        <button class="btn" style="background:var(--brand)" onclick="document.getElementById('page-overlay').style.display='block'">📊 KÜBAJ MOTORU</button>
+    <div class="section-title">📊 ANALİZ & HESAPLAMA</div>
+    <button class="btn" style="background:#16a085; font-size:12px; padding:10px;" onclick="document.getElementById('page-overlay').style.display='block'">📈 KÜBAJ VE LOJİSTİK MOTORU</button>
+
+    <div class="section-title">🎨 STİL VE GÖRÜNÜM</div>
+    <div class="style-control">
+        <span>Nokta Boyutu:</span>
+        <input type="range" id="ptSize" min="4" max="20" value="8" oninput="renderStylesOnly()">
+        <input type="color" id="ptColor" value="#3498db" onchange="renderStylesOnly()">
+    </div>
+    <div class="style-control">
+        <span>Hat Kalınlığı:</span>
+        <input type="range" id="lnWidth" min="1" max="10" value="2" oninput="renderStylesOnly()">
+        <input type="color" id="lnColor" value="#2ecc71" onchange="renderStylesOnly()">
+    </div>
+    <div class="style-control">
+        <span>Etiket:</span>
+        <select id="labelMode" onchange="render()" style="font-size:10px; padding:2px;">
+            <option value="id">Nokta No</option>
+            <option value="z">Kot (Z)</option>
+            <option value="both">No + Kot</option>
+            <option value="none">Yok</option>
+        </select>
     </div>
 
-    <div class="acc-item active">
-        <div class="acc-header" onclick="toggleAcc(this)">🧮 TOPOGRAFİK HESAP & BOYKESİT <span>▼</span></div>
-        <div class="acc-content">
-            <div class="grid-2">
-                <button id="btn-measure" class="btn" style="background:var(--measure); color:#000" onclick="setMode('measure')">📏 HASSAS MESAFE</button>
-                <button id="btn-area" class="btn" style="background:var(--area)" onclick="setMode('area')">📐 ALAN HESABI</button>
-            </div>
-            <button id="btn-profile" class="btn" style="background:var(--profile)" onclick="setMode('profile')">📉 ENKESİT / BOYKESİT PROFİLİ</button>
-        </div>
+    <div class="section-title">🔗 OTOMATİK HAT ÇİZİMİ</div>
+    <div class="btn-row">
+        <button class="btn" style="background:#8e44ad" onclick="autoLink('seq')">🔄 SIRALI (NCN)</button>
+        <button class="btn" style="background:#d35400" onclick="autoLink('near')">📍 EN YAKIN (MİN/MAX)</button>
     </div>
 
-    <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">✏️ HASSAS CAD ÇİZİM MOTORU <span>▼</span></div>
-        <div class="acc-content">
-            <div class="grid-3">
-                <button id="btn-add" class="btn" style="background:#2c3e50" onclick="setMode('add')">➕ NOKTA AT</button>
-                <button id="btn-line" class="btn" style="background:#2c3e50" onclick="setMode('line')">➖ HAT ÇİZ</button>
-                <button id="btn-move" class="btn" style="background:var(--info)" onclick="setMode('move')">🖐️ TAŞI</button>
-            </div>
-            <button id="btn-delete" class="btn" style="background:var(--danger)" onclick="setMode('delete')" title="Çoklu silmek için basılı tutarak alan seçin">🗑️ ÇOKLU SEÇ & SİL</button>
-            
-            <label>Gelişmiş CAD Modifikasyonları</label>
-            <div class="grid-3">
-                <button id="btn-offset" class="btn" style="background:#e67e22" onclick="setAdvMode('offset')">⏸ KOPYALA</button>
-                <button id="btn-mirror" class="btn" style="background:#2980b9" onclick="setAdvMode('mirror')">🪞 AYNALA</button>
-                <button id="btn-polar" class="btn" style="background:#8e44ad" onclick="setAdvMode('polar')">🧭 POLAR ARRAY</button>
-            </div>
-            
-            <div id="adv-params" style="display:none; padding:10px; background:#222; border-radius:6px; margin-top:8px; border:1px solid #333;">
-                <div id="pnl-offset" style="display:none;"><p style="font-size:11px; color:#aaa; margin:0;">Objeyi seçip haritada hedef lokasyona tıklayın.</p></div>
-                <div id="pnl-mirror" style="display:none;"><p style="font-size:11px; color:#aaa; margin:0;">Aynalanacak objeyi seçin.</p></div>
-                <div id="pnl-polar" style="display:none;">
-                    <div class="grid-2">
-                        <div><label>Semt Açısı (°):</label><input type="number" id="adv-angle" value="45"></div>
-                        <div><label>Mesafe (m):</label><input type="number" id="adv-length" value="20"></div>
-                    </div>
-                </div>
-            </div>
-
-            <label>Parametrik Geometrik Objeler</label>
-            <div class="grid-3">
-                <button class="btn" style="background:#16a085" onclick="setGeoMode('circle')">⭕ ÇEMBER</button>
-                <button class="btn" style="background:#16a085" onclick="setGeoMode('square')">🟦 KARE</button>
-                <button class="btn" style="background:#16a085" onclick="setGeoMode('rect')">▭ DİKDÖRT.</button>
-                <button class="btn" style="background:#16a085" onclick="setGeoMode('triangle')">🔺 ÜÇGEN</button>
-                <button class="btn" style="background:#16a085" onclick="setGeoMode('polygon')">⬡ ÇOKGEN</button>
-                <button class="btn" style="background:#16a085" onclick="setGeoMode('cone')">📐 KONİ/ŞEV</button>
-            </div>
-            <div id="geo-params" style="display:none; padding:10px; background:#222; border-radius:6px; margin-top:8px; border:1px solid #333;">
-                <div class="grid-2">
-                    <div><label>Yarıçap / Kenar (m):</label><input type="number" id="geo-p1" value="15"></div>
-                    <div><label>Kot Değeri (Z):</label><input type="number" id="geo-z" value="100"></div>
-                </div>
-                <div id="geo-p2-container" style="display:none;"><label>Genişlik (X - m):</label><input type="number" id="geo-p2" value="30"></div>
-                <div id="geo-sides-container" style="display:none;"><label>Kenar Sayısı:</label><input type="number" id="geo-sides" value="6"></div>
-            </div>
-        </div>
+    <div class="section-title">🛠️ ÇİZİM ARAÇLARI</div>
+    <div class="btn-row">
+        <button id="btn-add" class="btn" onclick="setMode('add')">➕ NOKTA</button>
+        <button id="btn-line" class="btn" onclick="setMode('line')">📏 HAT ÇİZ</button>
+    </div>
+    <div class="btn-row">
+        <button id="btn-delPt" class="btn btn-red" style="background:#c0392b" onclick="setMode('delPt')">✖ NOKTA SİL</button>
+        <button id="btn-delLine" class="btn btn-red" style="background:#c0392b" onclick="setMode('delLine')">✂ HAT SİL</button>
     </div>
 
-    <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">🏗️ SAYISAL ARAZİ MODELİ (SAM) <span>▼</span></div>
-        <div class="acc-content">
-            <button class="btn" style="background:#8e44ad" onclick="autoLink('seq')">🔄 NOKTA NUMARASINA GÖRE ARDIŞIK BAĞLA</button>
-            <div class="grid-2">
-                <button class="btn" style="background:#1abc9c" onclick="autoLink('near')">📍 EN YAKIN / UZAK KOMŞU</button>
-                <button class="btn" style="background:#2980b9" onclick="autoLink('layer')">🏗️ TABAKA BAZLI DETAYLI BAĞLA</button>
-            </div>
-            <button class="btn" style="background:#e74c3c; margin-top:8px;" onclick="createTIN()">📐 TIN YÜZEY MODELİ OLUŞTUR</button>
-        </div>
+    <div class="section-title">📂 DOSYA İŞLEMLERİ</div>
+    <div class="btn-row">
+        <button class="btn" style="background:#2980b9" onclick="document.getElementById('fileIn').click()">📥 İÇE AKTAR (Çoklu)</button>
+        <input type="file" id="fileIn" hidden multiple onchange="loadFile(this)" accept=".ncn,.txt,.xyz,.csv,.kml,.geojson,.json">
     </div>
-
-    <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">📂 VERİ ENTEGRASYONU & DIŞA AKTAR <span>▼</span></div>
-        <div class="acc-content">
-            <button class="btn" style="background:var(--info)" onclick="document.getElementById('fileIn').click()">📥 NOKTA BULUTU İÇE AKTAR (NCN / DXF / TXT)</button>
-            <input type="file" id="fileIn" accept=".ncn, .dxf, .txt" hidden onchange="openWizard(this)">
-            
-            <label>Aktif Çalışma Tabakası (Filtre):</label>
-            <select id="layerFilter" onchange="render()"><option value="all">Tüm Katmanları Göster (Görünür)</option></select>
-            
-            <label>Mühendislik Formatında Export:</label>
-            <div class="grid-2">
-                <button class="btn" style="background:#217346" onclick="exportXLS()">MS EXCEL (XLSX)</button>
-                <button class="btn" style="background:#c0392b" onclick="exportDXF()">AUTOCAD (DXF)</button>
-                <button class="btn" style="background:#f39c12" onclick="exportKML()">GOOGLE EARTH (KML)</button>
-                <button class="btn" style="background:#34495e" onclick="exportXYZ()">XYZ COORD</button>
-            </div>
-        </div>
+    <div class="btn-row">
+        <button class="btn btn-small" style="background:#c0392b" onclick="clearAllPoints()">🗑️ TÜMÜNÜ TEMİZLE</button>
     </div>
-
-    <div class="acc-item">
-        <div class="acc-header" onclick="toggleAcc(this)">🎨 GÖRÜNÜM & CAD SEMBOLOJİSİ <span>▼</span></div>
-        <div class="acc-content">
-            <div class="grid-2">
-                <div><label>Nokta Simgesi</label><select id="ptType" onchange="render()"><option value="⊕">⊕ Standart CAD</option><option value="+">+</option><option value="x">x</option></select></div>
-                <div><label>A標 Boyutu</label><input type="range" id="ptSize" min="10" max="35" value="16" oninput="render()"></div>
-            </div>
-            <div class="grid-2">
-                <div><label>Çizgi Tipi</label><select id="lnType" onchange="render()"><option value="solid">Düz Çizgi (Continuous)</option><option value="dash">Kesik Çizgi (Hidden)</option></select></div>
-                <div><label>Çizgi Kalınlığı</label><input type="range" id="lnWidth" min="1" max="8" value="2" oninput="render()"></div>
-            </div>
-            <label>Öznitelik Metin Gösterimi (Label)</label>
-            <select id="lblMode" onchange="render()"><option value="id_z">Nokta No + Kot (Z)</option><option value="id">Sadece Nokta Adı</option><option value="none">Etiketleri Kapat</option></select>
-        </div>
+    <div class="section-title" style="margin-top:5px; border:none; font-size:10px;">DIŞA AKTAR</div>
+    <div class="btn-row">
+        <button class="btn btn-small" style="background:#27ae60" onclick="exportData('xls')">XLS (Excel)</button>
+        <button class="btn btn-small" style="background:#34495e" onclick="exportData('dxf')">DXF (Cad)</button>
     </div>
+    <div class="btn-row">
+        <button class="btn btn-small" style="background:#7f8c8d" onclick="exportData('ncn')">NCN (Netcad)</button>
+        <button class="btn btn-small" style="background:#7f8c8d" onclick="exportData('xyz')">XYZ</button>
+    </div>
+    <div class="btn-row">
+        <button class="btn btn-small" style="background:#e67e22" onclick="exportData('kml')">KML (Google)</button>
+        <button class="btn btn-small" style="background:#8e44ad" onclick="exportData('geojson')">GeoJSON</button>
+        <button class="btn btn-small" style="background:#95a5a6" onclick="exportData('csv')">CSV</button>
+    </div>
+    
+    <button class="btn" style="background:#000; margin-top:10px;" onclick="zoomAll()">🎯 EKRANA SIĞDIR</button>
 </div>
 
-<div class="bottom-acc" id="coord-panel">
-    <div class="bottom-header" onclick="document.getElementById('coord-panel').classList.toggle('open')">
-        <span>📍 GEOMETRİK NOKTA EDİTÖRÜ & COORD LIST</span>
-        <span>▲ / ▼ VERİ LİSTESİ</span>
-    </div>
-    <div class="bottom-content">
-        <div style="padding:8px; background:#1e1e1e;"><input type="text" id="searchInput" placeholder="Nokta Adı veya Tabaka Kodu ile filtrele..." onkeyup="renderTable()" style="margin:0;"></div>
-        <div class="table-wrap">
-            <table id="pointTable">
-                <thead><tr><th>NO</th><th>Y (DOĞU / SAGA)</th><th>X (KUZEY / YUKARI)</th><th>Z (KOT / ELEVATION)</th><th>KATMAN/TABAKA</th><th>GEOMETRİK İŞLEM</th></tr></thead>
-                <tbody id="tBody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div id="import-wizard" class="modal">
-    <h3>🌐 Geomatik Koordinat Dönüşüm Sihirbazı</h3>
-    <label>Dosya Eksen Sıralaması:</label>
-    <select id="coord-map">
-        <option value="Y-X">Y: Doğu / X: Kuzey (Türkiye Standart Projeksiyon)</option>
-        <option value="X-Y">X: Doğu / Y: Kuzey (Global Matematiksel CAD Aksı)</option>
-    </select>
-    <label>Z Ölçü Birimi ve Kot Entegrasyonu:</label>
-    <select id="z-opt"><option value="yes">Kot Değerlerini Oku ve İşle</option><option value="no">Kotları Yoksay (Sıfır Zemin Ata)</option></select>
-    <button class="btn" style="background:var(--success); margin-top:15px;" onclick="processImport()">SİSTEME ENTEGRE ET</button>
-</div>
-
-<div id="pt-edit-modal" class="modal">
-    <h3>📍 Nokta Geometrisi Düzenle</h3>
-    <label>Nokta Numarası:</label><input type="text" id="ed-id">
-    <label>Y (Doğu / Sağa):</label><input type="number" id="ed-y" step="0.001">
-    <label>X (Kuzey / Yukarı):</label><input type="number" id="ed-x" step="0.001">
-    <label>Z (Kot / Yükseklik):</label><input type="number" id="ed-z" step="0.001">
-    <label>Katman Kodu:</label><input type="text" id="ed-lay">
-    <div class="grid-2" style="margin-top:15px;">
-        <button class="btn" style="background:var(--success)" onclick="savePt()">KAYDET</button>
-        <button class="btn" style="background:var(--danger)" onclick="document.getElementById('pt-edit-modal').style.display='none'">İPTAL</button>
-    </div>
-</div>
-
-<div id="profile-chart-container">
-    <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
-        <h3>📉 Sayısal Arazi Boykesit Profili</h3>
-        <button class="btn" style="width:auto; background:var(--danger); padding:5px 15px;" onclick="this.parentElement.parentElement.style.display='none'">✖ KAPAT</button>
-    </div>
-    <canvas id="profileCanvas" style="flex:1; border:1px solid #333; background:#111; border-radius:6px;"></canvas>
+<div id="table-wrapper">
+    <table id="coordTable">
+        <thead>
+            <tr><th>NO</th><th>Y (DOĞU)</th><th>X (KUZEY)</th><th>Z</th><th>DOSYA</th><th>İŞLEM</th></tr>
+        </thead>
+        <tbody id="tBody"></tbody>
+    </table>
 </div>
 
 <div id="page-overlay">
-    <div style="max-width:1100px; margin:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid var(--brand); padding-bottom:15px;">
-            <h2>📊 Civil 3D Standardı TIN Kesişim Motoru - Hassas Kübaj V4.0</h2>
-            <button class="btn" style="background:var(--danger); width:auto;" onclick="document.getElementById('page-overlay').style.display='none'">✖ EKRANI KAPAT</button>
+    <div style="max-width: 1200px; margin: 0 auto; background: #2c2c2c; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #444; padding-bottom: 15px;">
+            <h2 style="margin: 0; color: #fff;">📊 Yüzey Karşılaştırmalı Gelişmiş Kübaj (Hacim) Motoru V4.0</h2>
+            <button class="btn" style="background:var(--danger); width:auto; padding:8px 15px;" onclick="document.getElementById('page-overlay').style.display='none'">✖ EKRANI KAPAT</button>
         </div>
 
-        <div class="grid-2" style="margin-top:20px;">
-            <div style="background:#1e1e1e; padding:25px; border-radius:12px; border:1px solid #333;">
-                <h4 style="color:var(--brand); margin-top:0;">🚚 Lojistik Nakliye Parametreleri</h4>
-                <div class="grid-2">
-                    <div><label>Damperli Kamyon Hacmi (m³):</label><input type="number" id="k-cap" value="18"></div>
-                    <div><label>Ariyet / Depo Mesafesi (km):</label><input type="number" id="k-dist" value="5.5" step="0.1"></div>
+        <div style="background:#1e1e1e; padding:20px; border-radius:12px; border:1px solid #333; margin-top:20px;">
+            <h4 style="color:var(--brand); margin-top:0;">⚙️ Hesaplama Yöntemi</h4>
+            <div class="style-control" style="margin-bottom:10px;">
+                <label style="margin-right:10px;"><input type="radio" name="k-method" value="tin" checked onchange="toggleKubajMethod()"> 🔺 Delaunay TIN / Grid Tarama (Civil3D mantığı, önerilen)</label>
+                <label><input type="radio" name="k-method" value="match" onchange="toggleKubajMethod()"> 📍 Eski: Nokta Eşleştirme (Nearest-Neighbor)</label>
+            </div>
+            <div class="grid-4">
+                <div><label>Kamyon Net Hacmi (m³):</label><input type="number" id="k-cap" value="18"></div>
+                <div id="k-area-wrap"><label id="k-area-label">Grid Tarama Aralığı (m):</label><input type="number" id="k-area" value="1.0" step="0.1" title="TIN modunda: tarama grid hücre boyutu (metre). Küçük değer = daha hassas ama daha yavaş."></div>
+                <div><label>Depo Mesafesi (km):</label><input type="number" id="k-dist" value="5.5" step="0.1"></div>
+                <div id="k-tol-wrap"><label style="color:var(--highlight);">Eşleşme Toleransı (m):</label><input type="number" id="k-tol" value="1.0" step="0.1" title="Sadece eski yöntemde kullanılır: Örn 1.0 m yarıçapındaki en yakın noktayı eşleştirir"></div>
+            </div>
+            <p id="k-method-hint" style="font-size:11px; color:#999; margin:0;">TIN modunda her iki yüzey de kendi Delaunay üçgen ağına dönüştürülür; iki yüzeyin ortak XY alanı seçtiğiniz grid aralığıyla taranır, her hücrede iki yüzeyin Z'si üçgen içi enterpolasyonla bulunur ve hacim Σ(Δz × hücre alanı) olarak toplanır. Bu, Civil3D'nin TIN-TIN hacim hesabına çok yakın sonuç verir.</p>
+        </div>
+        
+        <div style="background:#1e1e1e; padding:20px; border-radius:12px; border:1px solid #333; margin-top:20px;">
+            <h4 style="color:var(--success); margin-top:0;">📄 Yüzey Verilerini Yükle (NCN, CSV, XYZ) — Çoklu Dosya Desteklenir</h4>
+            <div class="grid-2">
+                <div>
+                    <label>1. Nebati Yüzey (Orijinal Zemin) — birden fazla dosya seçilebilir:</label>
+                    <input type="file" multiple onchange="loadKubaFile(this, 'nebati')" accept=".ncn,.txt,.xyz,.csv,.kml,.geojson,.json">
+                    <div id="nebati-file-list" style="font-size:10px; color:#aaa; margin-top:-10px; margin-bottom:10px;">Henüz dosya yüklenmedi.</div>
+                </div>
+                <div>
+                    <label>2. Kazı / Dolgu Sonrası Nihai Yüzey — birden fazla dosya seçilebilir:</label>
+                    <input type="file" multiple onchange="loadKubaFile(this, 'kazi')" accept=".ncn,.txt,.xyz,.csv,.kml,.geojson,.json">
+                    <div id="kazi-file-list" style="font-size:10px; color:#aaa; margin-top:-10px; margin-bottom:10px;">Henüz dosya yüklenmedi.</div>
                 </div>
             </div>
-            <div style="background:#1e1e1e; padding:25px; border-radius:12px; border:1px solid #333;">
-                <h4 style="color:var(--success); margin-top:0;">📄 Yüzey Verileri (NCN/XYZ)</h4>
-                <label>1. Doğal Zemin Dosyası (Alt Yüzey — NCN/XYZ/TXT):</label>
-                <input type="file" onchange="loadKubaFile(this, 'nebati')" accept=".ncn,.xyz,.txt,.csv">
-                <div id="k-lbl-nebati" style="font-size:11px; color:#aaa; margin:-2px 0 6px 2px;">⬜ Henüz yüklenmedi</div>
-                <label>2. Kırmızı Kot / Nihai Yüzey (Üst — NCN/XYZ/TXT):</label>
-                <input type="file" onchange="loadKubaFile(this, 'kazi')" accept=".ncn,.xyz,.txt,.csv">
-                <div id="k-lbl-kazi"   style="font-size:11px; color:#aaa; margin:-2px 0 6px 2px;">⬜ Henüz yüklenmedi</div>
-                <button class="btn" style="background:var(--success); margin-top:12px; padding:14px;" onclick="calculateRouteVolume()">📐 TIN PRISMOIDAL KÜBAJ HESAPLA</button>
+            <div class="btn-row">
+                <button class="btn btn-small" style="background:#7f8c8d" onclick="clearKubaSurface('nebati')">🗑️ Nebati Yüzeyi Temizle</button>
+                <button class="btn btn-small" style="background:#7f8c8d" onclick="clearKubaSurface('kazi')">🗑️ Kazı Yüzeyini Temizle</button>
             </div>
+            <button class="btn" style="background:var(--success); margin-top:10px; padding:14px; font-size:12px;" onclick="calculateRouteVolume()">▶ KÜBAJ HESAPLA</button>
         </div>
 
         <div id="res-area" style="display:none; margin-top:30px;">
@@ -263,14 +180,12 @@
                 <div style="flex:1; background:#4c1c1c; color:#e74c3c; padding:20px; border-radius:10px; border:1px solid #e74c3c;">Toplam Yapısal Dolgu: <h2 id="r-fill" style="margin:10px 0 0 0;">0 m³</h2></div>
                 <div style="flex:1; background:#3a2d12; color:#f1c40f; padding:20px; border-radius:10px; border:1px solid #f1c40f;">Gerekli Toplam Sefer: <h2 id="r-trip" style="margin:10px 0 0 0;">0 Sefer</h2></div>
             </div>
-            <div style="display:flex; gap:15px; text-align:center; margin-top:12px;">
-                <div style="flex:1; background:#1c2433; color:#3498db; padding:10px; border-radius:8px; border:1px solid #3498db; font-size:12px;">Grid Hassasiyeti: <b id="r-grid">—</b></div>
-            </div>
-            <button class="btn" style="background:var(--info); width:auto; margin-top:20px; padding:12px 25px;" onclick="exportPDF()">📄 RESMİ RAPOR ÜRET (PDF)</button>
+            <div id="kubaj-debug-info" style="font-size:11px; color:#888; margin-top:10px; text-align:center;"></div>
+            <button class="btn" style="background:var(--info); width:auto; margin-top:20px; padding:12px 25px;" onclick="exportKubajCSV()">📄 KÜBAJ RAPORUNU DIŞA AKTAR (CSV)</button>
             
-            <div style="overflow-x:auto; margin-top:20px; max-height:450px; border:1px solid #333; border-radius:8px;">
+            <div style="overflow-x:auto; margin-top:20px; max-height:350px; border:1px solid #333; border-radius:8px;">
                 <table id="kubajTable">
-                    <thead><tr style="background:#252525; color:#fff;"><th>Sektör Matrisi</th><th>X / Kuzey (Ort)</th><th>Y / Doğu (Ort)</th><th>Yarma Hacmi (m³)</th><th>Dolgu Hacmi (m³)</th><th>Sefer İhtiyacı</th><th>Aksiyon</th></tr></thead>
+                    <thead><tr style="background:#252525; color:#fff;"><th>Eşleşme No</th><th>X / Kuzey</th><th>Y / Doğu</th><th>Kot Farkı (ΔZ)</th><th>Yarma Hacmi (m³)</th><th>Dolgu Hacmi (m³)</th><th>Sefer İhtiyacı</th><th>Durum</th></tr></thead>
                     <tbody id="res-body"></tbody>
                 </table>
             </div>
@@ -279,560 +194,845 @@
 </div>
 
 <script>
-// CAD Global Değişkenleri
-let pts = []; let lns = []; let history = []; 
-let map, lyrPts, lyrLns, lyrTemp;
-let mode = 'idle'; let geoMode = 'none'; let snappedPt = null; 
-let lineStart = null; let moveTarget = null; let advSelectedShape = null;
-let measurePts = []; let profilePts = []; let editTargetId = null;
-let k_nebati = []; let k_kazi = [];
-let boxSelecting = false; let boxStartPoint = null; let selectionRect = null;
+// --- CAD GLOBAL DEĞİŞKENLERİ ---
+let pts = []; 
+let lns = []; 
+let map, lyrPts, lyrLns;
+let mode = 'idle';
+let lineStartPt = null;
+let dragStartPos = null;
 
-function getTrueDistance(p1, p2) { return Math.hypot(p1.x - p2.x, p1.y - p2.y); }
+// --- KÜBAJ GLOBAL DEĞİŞKENLERİ ---
+let k_nebati = [];   // birikmiş (çoklu dosya) nebati (orijinal) yüzey noktaları
+let k_kazi = [];     // birikmiş (çoklu dosya) kazı/dolgu sonrası yüzey noktaları
+let k_nebati_files = []; // {name, count} - yüklenen dosya geçmişi
+let k_kazi_files = [];
+let kubajResults = [];
+let kubajTinDebug = null; // son hesaplamanın TIN/grid debug bilgisi (istatistik amaçlı)
 
+// --- ANA EKRAN ÇOKLU DOSYA TAKİBİ ---
+let fileColorPalette = ['#3498db','#e67e22','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f1c40f','#34495e'];
+let loadedFileCount = 0; // ana ekrana kaç dosya yüklendi (renk/etiket ataması için)
+
+// --- BAŞLATMA ---
 function init() {
-    map = L.map('map', { crs: L.CRS.Simple, preferCanvas: true, zoomControl: true, minZoom: -10, maxZoom: 10 });
-    lyrLns = L.layerGroup().addTo(map); lyrPts = L.layerGroup().addTo(map); lyrTemp = L.layerGroup().addTo(map);
-    map.setView([0, 0], 2);
+    map = L.map('map', { crs: L.CRS.Simple, minZoom: -5, zoomControl: false });
+    lyrLns = L.layerGroup().addTo(map);
+    lyrPts = L.layerGroup().addTo(map);
+    map.setView([0, 0], 0);
 
-    map.on('mousemove', (e) => {
-        handleSnapping(e.latlng);
-        if(mode === 'move' && moveTarget) {
-            lyrTemp.clearLayers();
-            L.polyline([[moveTarget.y, moveTarget.x], [e.latlng.lat, e.latlng.lng]], {color:'#f1c40f', dashArray:'6,6', weight:2}).addTo(lyrTemp);
-        }
-        if (boxSelecting && selectionRect && mode === 'delete') {
-            selectionRect.setBounds([boxStartPoint, e.latlng]);
-        }
-    });
-
-    map.on('mousedown', (e) => {
-        if (mode === 'delete') {
-            boxSelecting = true; boxStartPoint = e.latlng;
-            selectionRect = L.rectangle([boxStartPoint, boxStartPoint], {color: '#e74c3c', weight: 1.5, fillOpacity: 0.15, dashArray: '4,4'}).addTo(lyrTemp);
-        }
-    });
-
-    map.on('mouseup', (e) => {
-        if (boxSelecting && selectionRect && mode === 'delete') {
-            boxSelecting = false; let bounds = selectionRect.getBounds(); lyrTemp.removeLayer(selectionRect); selectionRect = null;
-            let p1 = map.latLngToContainerPoint(bounds.getNorthWest()); let p2 = map.latLngToContainerPoint(bounds.getSouthEast());
-            if(Math.abs(p1.x - p2.x) < 6 && Math.abs(p1.y - p2.y) < 6) return;
-
-            saveState();
-            let ptsToDelete = new Set();
-            pts.forEach(p => { if(bounds.contains([p.y, p.x])) ptsToDelete.add(p); });
-            let lnsToDelete = new Set();
-            lns.forEach(l => {
-                if(bounds.contains(L.latLng(l.from.y, l.from.x)) || bounds.contains(L.latLng(l.to.y, l.to.x)) || ptsToDelete.has(l.from) || ptsToDelete.has(l.to)) {
-                    lnsToDelete.add(l);
-                }
-            });
-
-            if(ptsToDelete.size > 0 || lnsToDelete.size > 0) {
-                pts = pts.filter(p => !ptsToDelete.has(p)); lns = lns.filter(l => !lnsToDelete.has(l));
-                render(); showInfo(`Silindi: ${ptsToDelete.size} Nokta, ${lnsToDelete.size} Çizgi.`); setTimeout(hideInfo, 2500);
-            }
-        }
-    });
-
-    map.on('click', (e) => {
-        let pos = snappedPt ? { lat: snappedPt.y, lng: snappedPt.x } : e.latlng;
-
-        if (mode === 'add') { saveState(); addPointBulk([{id:"N_" + (pts.length+1), y:pos.lat, x:pos.lng, z:0, lay:"CAD_MANUEL"}]); }
-        else if (mode === 'move') {
-            if(!moveTarget && snappedPt) { moveTarget = snappedPt; showInfo(`Yakalandı: ${moveTarget.id}`); }
-            else if(moveTarget) { saveState(); moveTarget.y = pos.lat; moveTarget.x = pos.lng; moveTarget = null; lyrTemp.clearLayers(); render(); setTimeout(hideInfo, 1500); }
-        }
-        else if (mode === 'line') {
-            if (snappedPt) {
-                if(!lineStart) { lineStart = snappedPt; showInfo("Bitiş noktasını seçin."); }
-                else { if(lineStart !== snappedPt) { saveState(); lns.push({from: lineStart, to: snappedPt, lay:"CAD_LINE"}); lineStart = null; render(); setTimeout(hideInfo, 1000); } }
-            }
-        }
-        else if (mode === 'geo') { drawGeoForm(pos); }
-        else if (mode === 'polar') {
-            saveState();
-            let ang = parseFloat(document.getElementById('adv-angle').value) || 0;
-            let len = parseFloat(document.getElementById('adv-length').value) || 10;
-            let start = snappedPt || {id:"P_START", y:pos.lat, x:pos.lng, z:0, lay:"POLAR"};
-            let end = {id:"P_END_" + (pts.length+1), y:start.y + len*Math.sin(ang*Math.PI/180), x:start.x + len*Math.cos(ang*Math.PI/180), z:start.z, lay:"POLAR"};
-            if(!snappedPt) pts.push(start); pts.push(end); lns.push({from:start, to:end, lay:"POLAR"}); render(); setTimeout(hideInfo, 2000);
-        }
-        else if (mode === 'measure') addMeasure(pos);
-        else if (mode === 'area') addArea(pos);
-        else if (mode === 'profile' && snappedPt) { profilePts.push(snappedPt); drawTempProfile(); }
-    });
-
-    map.on('contextmenu', () => {
-        if(mode === 'profile') finishMapProfile();
-        else if(mode === 'measure' || mode === 'area') { measurePts = []; lyrTemp.clearLayers(); }
-        resetMode();
+    map.on('click', onMapClick);
+    document.addEventListener('keydown', (e) => {
+        if(e.key === "Escape") { setMode('idle'); alert("Mod İptal Edildi."); }
     });
 }
 
-function drawGeoForm(pos) { 
-    saveState(); let s1 = parseFloat(document.getElementById('geo-p1').value) || 10; let z = parseFloat(document.getElementById('geo-z').value) || 0; let newPts = []; let sId = pts.length + 1;
-    if(geoMode === 'circle') for(let i=0; i<360; i+=22.5) newPts.push({id:"C_"+(sId++), y: pos.lat+s1*Math.sin(i*Math.PI/180), x: pos.lng+s1*Math.cos(i*Math.PI/180), z, lay:"GEO"});
-    pts = pts.concat(newPts); render(); setTimeout(hideInfo, 1500);
-}
-
-function openWizard(i) {
-    const r = new FileReader(); r.onload = (e) => { window.curFile = e.target.result; document.getElementById('import-wizard').style.display='block'; }; r.readAsText(i.files[0]);
-}
-
-function processImport() {
-    saveState(); const cfg = document.getElementById('coord-map').value; const zOpt = document.getElementById('z-opt').value;
-    const lines = window.curFile.split(/\r?\n/); let newPts = [];
-    lines.forEach(l => {
-        let d = l.trim().split(/[\s,]+/); if(d.length < 3) return;
-        let id = d[0], v1 = parseFloat(d[1]), v2 = parseFloat(d[2]); if(isNaN(v1) || isNaN(v2)) return;
-        let z = (zOpt === 'yes' && d.length>=4) ? parseFloat(d[3])||0 : 0;
-        let lay = d.length > 4 ? d[4].replace(/"/g, '') : "IMPORT_KATMAN";
-        if(cfg === 'X-Y') newPts.push({id, y:v2, x:v1, z, lay}); else newPts.push({id, y:v1, x:v2, z, lay});
-    });
-    addPointBulk(newPts); zoomAll(); document.getElementById('import-wizard').style.display='none';
-}
-
-function addPointBulk(arr) {
-    const sel = document.getElementById('layerFilter'); let layers = new Set([...sel.options].map(o=>o.value));
-    arr.forEach(p => { pts.push(p); if(!layers.has(p.lay)) { layers.add(p.lay); sel.add(new Option(p.lay, p.lay)); } }); render();
-}
-
+// --- RENDER MOTORU ---
 function render() {
-    lyrPts.clearLayers(); lyrLns.clearLayers();
-    const tBody = document.getElementById('tBody'); tBody.innerHTML = '';
-    let pType = document.getElementById('ptType').value; let pSize = parseInt(document.getElementById('ptSize').value);
-    let lType = document.getElementById('lnType').value; let lWidth = parseInt(document.getElementById('lnWidth').value);
-    let filter = document.getElementById('layerFilter').value;
-
-    lns.forEach((l, lIdx) => {
-        if(filter !== 'all' && l.lay !== filter && l.from.lay !== filter) return;
-        let line = L.polyline([[l.from.y, l.from.x], [l.to.y, l.to.x]], { color: '#e67e22', weight: lWidth, dashArray: lType==='dash'?'8,8':'' }).addTo(lyrLns);
-        line.on('click', (e) => { L.DomEvent.stopPropagation(e); if(mode==='delete') { saveState(); lns.splice(lIdx, 1); render(); } });
-    });
-
-    let count = 0;
-    pts.forEach((p, idx) => {
-        if(filter !== 'all' && p.lay !== filter) return;
-        let m = L.marker([p.y, p.x], { icon: L.divIcon({ html: `<b style="color:var(--brand); font-size:${pSize}px; margin-left:-${pSize/2}px; margin-top:-${pSize/2}px;">${pType}</b>`, className:'' }) }).addTo(lyrPts);
-        if(document.getElementById('lblMode').value !== 'none' && pts.length < 1500) m.bindTooltip(p.id, {permanent: true, direction: 'top'});
-        m.on('click', (e) => { L.DomEvent.stopPropagation(e); if(mode === 'delete') { saveState(); lns = lns.filter(l => l.from !== p && l.to !== p); pts.splice(idx, 1); render(); } else if(mode === 'idle') openEdit(idx); });
-        
-        if(count < 150) {
-            let row = document.createElement('tr'); row.className = 'pt-row'; row.onclick = () => focusPt(p.y, p.x);
-            row.innerHTML = `<td>${p.id}</td><td>${p.y.toFixed(3)}</td><td>${p.x.toFixed(3)}</td><td>${p.z.toFixed(2)}</td><td><span style="color:#f39c12">${p.lay}</span></td>
-            <td><button onclick="openEdit(${idx}); event.stopPropagation();" style="background:#222; border:1px solid #444; color:#fff; cursor:pointer;">DÜZENLE</button></td>`;
-            tBody.appendChild(row);
-        } count++;
-    });
-}
-
-function renderTable() {  }
-function focusPt(y, x) { map.flyTo([y, x], 7); L.circleMarker([y, x], {radius:18, color:'#f1c40f', fill:false, weight:2.5}).addTo(lyrTemp); setTimeout(()=>lyrTemp.clearLayers(),1500); }
-function openEdit(idx) { let p = pts[idx]; editTargetId = p.id; document.getElementById('ed-id').value = p.id; document.getElementById('ed-y').value = p.y; document.getElementById('ed-x').value = p.x; document.getElementById('ed-z').value = p.z; document.getElementById('ed-lay').value = p.lay; document.getElementById('pt-edit-modal').style.display='block'; }
-function savePt() { saveState(); let p = pts.find(x => x.id == editTargetId); if(p) { p.id = document.getElementById('ed-id').value; p.y = parseFloat(document.getElementById('ed-y').value); p.x = parseFloat(document.getElementById('ed-x').value); p.z = parseFloat(document.getElementById('ed-z').value); p.lay = document.getElementById('ed-lay').value; render(); } document.getElementById('pt-edit-modal').style.display='none'; }
-
-function handleSnapping(ll) {
-    let t = 20 / Math.pow(2, map.getZoom()); snappedPt = null;
-    for(let p of pts) { if(getTrueDistance(p, {x:ll.lng, y:ll.lat}) < t) { snappedPt = p; break; } }
-    let sc = document.getElementById('snap-cursor');
-    if(snappedPt) { let c = map.latLngToContainerPoint([snappedPt.y, snappedPt.x]); sc.style.display='block'; sc.style.left=c.x+'px'; sc.style.top=c.y+'px'; } else sc.style.display='none';
-}
-
-function addMeasure(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts.length>1) L.polyline(measurePts, {color:'#f1c40f', weight:3}).addTo(lyrTemp); let d=0; for(let i=0;i<measurePts.length-1;i++) d+=getTrueDistance({x:measurePts[i].lng, y:measurePts[i].lat}, {x:measurePts[i+1].lng, y:measurePts[i+1].lat}); showInfo(`📏 MESAFE: ${d.toFixed(3)} m`); }
-function addArea(ll) { measurePts.push(ll); lyrTemp.clearLayers(); if(measurePts.length>2) { L.polygon(measurePts, {color:'#9b59b6', weight:2, fillOpacity:0.3}).addTo(lyrTemp); let a=0, j=measurePts.length-1; for(let i=0;i<measurePts.length;i++) { a+=(measurePts[j].lng+measurePts[i].lng)*(measurePts[j].lat-measurePts[i].lat); j=i; } showInfo(`📐 ALAN: ${Math.abs(a/2).toFixed(2)} m²`); } }
-
-function drawTempProfile() { lyrTemp.clearLayers(); if(profilePts.length>1) L.polyline(profilePts.map(p=>[p.y, p.x]), {color:'#3498db', weight:2, dashArray:'4,4'}).addTo(lyrTemp); }
-function finishMapProfile() { }
-
-// GÜNCELLENMİŞ AUTO-LINK MOTORU — Soru Sormadan Doğrudan Sırayla Bağlama Fix'i eklendi
-function autoLink(type) {
-    if (pts.length < 2) return alert("Yetersiz nokta!");
-
-    saveState();
-    let count = 0;
-
-    if (type === 'seq') {
-        // Ardışık bağlantı: DİREKT olarak dizideki sıraya göre bağla (Mesafe sorusu kaldırıldı)
-        for (let i = 0; i < pts.length - 1; i++) {
-            lns.push({from: pts[i], to: pts[i+1], lay: "SEQ_LINK"});
-            count++;
-        }
-        render();
-        showInfo(`${count} adet ardışık hat oluşturuldu.`);
-        setTimeout(hideInfo, 3000);
-        return;
-    }
-
-    // EN YAKIN / UZAK KOMŞU ve TABAKA BAZLI için min + max mesafe sor
-    let label = type === 'near' ? "📍 EN YAKIN / UZAK KOMŞU" : "🏗️ TABAKA BAZLI DETAYLI BAĞLA";
-    let minDistStr = prompt(label + "\nMinimum mesafe (m) — bu değerin ALTINDAKI noktalar bağlanmaz:", "0.0");
-    if (minDistStr === null) return;
-    let minDist = parseFloat(minDistStr);
-    if (isNaN(minDist) || minDist < 0) return alert("Geçersiz minimum mesafe!");
-
-    let maxDistStr = prompt(label + "\nMaksimum mesafe (m) — bu değerin ÜSTÜNDEKI noktalar bağlanmaz:", "50.0");
-    if (maxDistStr === null) return;
-    let maxDist = parseFloat(maxDistStr);
-    if (isNaN(maxDist) || maxDist <= 0) return alert("Geçersiz maksimum mesafe!");
-    if (minDist >= maxDist) return alert("Minimum mesafe, maksimum mesafeden küçük olmalı!");
-
-    if (type === 'near') {
-        pts.forEach(p => {
-            let candidates = pts
-                .map(p2 => ({pt: p2, d: getTrueDistance(p, p2)}))
-                .filter(c => c.d >= minDist && c.d <= maxDist)
-                .sort((a, b) => a.d - b.d);
-            if (candidates.length === 0) return;
-            let nearest = candidates[0];
-            if (!lns.some(l => (l.from === p && l.to === nearest.pt) || (l.to === p && l.from === nearest.pt))) {
-                lns.push({from: p, to: nearest.pt, lay: "NEAR_LINK"});
-                count++;
-            }
-        });
-        render();
-        showInfo(`${count} adet yakın-komşu bağlantı (${minDist}m – ${maxDist}m aralığı) oluşturuldu.`);
-
-    } else if (type === 'layer') {
-        let targetLayer = prompt("Bağlanacak tabaka adı (Boş bırakılırsa tüm tabakalar):", "");
-        let workingSet = (targetLayer && targetLayer.trim() !== '')
-            ? pts.filter(p => p.lay === targetLayer.trim())
-            : pts;
-        if (workingSet.length < 2) { alert("Bu tabakada bağlanacak yeterli nokta yok!"); return; }
-        workingSet.forEach(p => {
-            let candidates = workingSet
-                .map(p2 => ({pt: p2, d: getTrueDistance(p, p2)}))
-                .filter(c => c.d >= minDist && c.d <= maxDist)
-                .sort((a, b) => a.d - b.d);
-            if (candidates.length === 0) return;
-            candidates.forEach(c => {
-                if (!lns.some(l => (l.from === p && l.to === c.pt) || (l.to === p && l.from === c.pt))) {
-                    lns.push({from: p, to: c.pt, lay: (targetLayer.trim() || "LAYER_LINK")});
-                    count++;
-                }
-            });
-        });
-        render();
-        showInfo(`${count} adet tabaka bağlantısı (${minDist}m – ${maxDist}m aralığı) oluşturuldu.`);
-    }
-
-    setTimeout(hideInfo, 3500);
-}
-// -----------------------------------------------------------------------------------
-// 🚀 V4.0: SIFIRDAN YAZILMIŞ "CIVIL 3D" STANDARDI TIN & PRISMOIDAL KÜBAJ MOTORU
-// -----------------------------------------------------------------------------------
-function calculateRouteVolume() {
-    if (!k_nebati.length || !k_kazi.length) {
-        let missing = [];
-        if (!k_nebati.length) missing.push('Doğal Zemin');
-        if (!k_kazi.length) missing.push('Kırmızı Kot');
-        return alert('Eksik dosya: ' + missing.join(', ') + '\nLütfen her iki yüzey dosyasını da yükleyin!');
-    }
-
-    let cap = parseFloat(document.getElementById('k-cap').value) || 18;
-    let btnEl = document.querySelector('[onclick="calculateRouteVolume()"]');
-    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Hesaplanıyor...'; }
-
-    // Async wrapper - UI'yi dondurmamak için
-    setTimeout(() => {
-        try {
-            _doKubaj(cap);
-        } catch(err) {
-            alert('Hesaplama hatası: ' + err.message);
-            console.error(err);
-        } finally {
-            if (btnEl) { btnEl.disabled = false; btnEl.textContent = '📐 TIN PRISMOIDAL KÜBAJ HESAPLA'; }
-        }
-    }, 50);
-}
-
-function _doKubaj(cap) {
-    // ── A) Bowyer-Watson Delaunay TIN ──────────────────────────────────────────
-    function buildTIN(vertices) {
-        if (vertices.length < 3) return [];
-        let xs = vertices.map(v => v.x), ys = vertices.map(v => v.y);
-        let minX = Math.min(...xs), maxX = Math.max(...xs);
-        let minY = Math.min(...ys), maxY = Math.max(...ys);
-        let dMax = Math.max(maxX - minX, maxY - minY) || 1;
-        let midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
-        let s1 = {x: midX - 20*dMax, y: midY - dMax,    z: 0, sup: true};
-        let s2 = {x: midX,           y: midY + 20*dMax,  z: 0, sup: true};
-        let s3 = {x: midX + 20*dMax, y: midY - dMax,    z: 0, sup: true};
-        let tris = [[s1, s2, s3]];
-
-        function circ(a, b, c) {
-            let dx1 = b.x-a.x, dy1 = b.y-a.y, dx2 = c.x-a.x, dy2 = c.y-a.y;
-            let l1 = dx1*dx1+dy1*dy1, l2 = dx2*dx2+dy2*dy2, det = dx1*dy2-dy1*dx2;
-            if (Math.abs(det) < 1e-10) return {x:0,y:0,rsq:0};
-            let cx = a.x+(dy2*l1-dy1*l2)/(2*det), cy = a.y+(dx1*l2-dx2*l1)/(2*det);
-            return {x:cx, y:cy, rsq:(cx-a.x)**2+(cy-a.y)**2};
-        }
-
-        for (let p of vertices) {
-            let bad = [];
-            for (let t of tris) {
-                let c = circ(t[0],t[1],t[2]);
-                if (c.rsq > 0 && (p.x-c.x)**2+(p.y-c.y)**2 <= c.rsq + 1e-6) bad.push(t);
-            }
-            let poly = [];
-            for (let t of bad) {
-                for (let i = 0; i < 3; i++) {
-                    let e1 = t[i], e2 = t[(i+1)%3];
-                    let shared = bad.some(ot => ot !== t &&
-                        (ot[0]===e1||ot[1]===e1||ot[2]===e1) &&
-                        (ot[0]===e2||ot[1]===e2||ot[2]===e2));
-                    if (!shared) poly.push([e1, e2]);
-                }
-            }
-            tris = tris.filter(t => !bad.includes(t));
-            for (let e of poly) tris.push([e[0], e[1], p]);
-        }
-        return tris.filter(t => !t[0].sup && !t[1].sup && !t[2].sup);
-    }
-
-    // ── B) Nokta-üçgen testi ───────────────────────────────────────────────────
-    function inTri(pt, t) {
-        function s(p1,p2,p3) { return (p1.x-p3.x)*(p2.y-p3.y)-(p2.x-p3.x)*(p1.y-p3.y); }
-        let d1=s(pt,t[0],t[1]), d2=s(pt,t[1],t[2]), d3=s(pt,t[2],t[0]);
-        return !((d1<-1e-6||d2<-1e-6||d3<-1e-6)&&(d1>1e-6||d2>1e-6||d3>1e-6));
-    }
-
-    // ── C) Düzlem Z interpolasyonu ─────────────────────────────────────────────
-    function getZ(x, y, tin) {
-        let pt = {x, y};
-        for (let t of tin) {
-            if (inTri(pt, t)) {
-                let Nx = (t[1].y-t[0].y)*(t[2].z-t[0].z)-(t[1].z-t[0].z)*(t[2].y-t[0].y);
-                let Ny = (t[1].z-t[0].z)*(t[2].x-t[0].x)-(t[1].x-t[0].x)*(t[2].z-t[0].z);
-                let Nz = (t[1].x-t[0].x)*(t[2].y-t[0].y)-(t[1].y-t[0].y)*(t[2].x-t[0].x);
-                if (Math.abs(Nz) < 1e-10) return t[0].z;
-                return t[0].z - (Nx*(x-t[0].x) + Ny*(y-t[0].y)) / Nz;
-            }
-        }
-        return null;
-    }
-
-    // ── D) TIN oluştur ─────────────────────────────────────────────────────────
-    let tinZ = buildTIN(k_nebati);   // Doğal zemin (alt)
-    let tinK = buildTIN(k_kazi);     // Kırmızı kot (üst)
-
-    if (tinZ.length === 0 || tinK.length === 0) {
-        alert('TIN oluşturulamadı — her yüzeyde en az 3 nokta gerekli.');
-        return;
-    }
-
-    // ── E) Bounding box: KIRMIZI kotun sınırları (proje alanı)
-    let allPts = k_kazi;
-    let minX = Math.min(...allPts.map(p=>p.x)), maxX = Math.max(...allPts.map(p=>p.x));
-    let minY = Math.min(...allPts.map(p=>p.y)), maxY = Math.max(...allPts.map(p=>p.y));
-
-    // ── F) Adaptif grid tarama: 0.25 m²/hücre (hassas + hızlı)
-    // Alan hesabı ile grid boyutunu otomatik seç
-    let totalArea = (maxX - minX) * (maxY - minY);
-    let gridSize = totalArea > 100000 ? 0.5 : (totalArea > 10000 ? 0.25 : 0.1);
-    let cellArea  = gridSize * gridSize;
-
-    let totalYarma = 0, totalDolgu = 0;
-    const macroCols = 10, macroRows = 10;
-    let stepX = (maxX - minX) / macroCols || 1;
-    let stepY = (maxY - minY) / macroRows || 1;
-    let macroGrids = Array.from({length: macroCols * macroRows}, () =>
-        ({cut:0, fill:0, cx:0, cy:0, active:false, ptCnt:0}));
-
-    for (let x = minX; x <= maxX + 1e-9; x += gridSize) {
-        for (let y = minY; y <= maxY + 1e-9; y += gridSize) {
-            let zKirmizi = getZ(x, y, tinK);
-            let zZemin   = getZ(x, y, tinZ);
-            if (zKirmizi === null || zZemin === null) continue;
-
-            let diff = zKirmizi - zZemin;
-            let localCut = 0, localFill = 0;
-            if      (diff < -0.001) { localCut  = Math.abs(diff) * cellArea; totalYarma += localCut; }
-            else if (diff >  0.001) { localFill = diff * cellArea;           totalDolgu += localFill; }
-
-            if (localCut > 0 || localFill > 0) {
-                let col = Math.min(Math.floor((x - minX) / stepX), macroCols - 1);
-                let row = Math.min(Math.floor((y - minY) / stepY), macroRows - 1);
-                let idx = row * macroCols + col;
-                let mg = macroGrids[idx];
-                if (!mg.active) { mg.cx = x; mg.cy = y; mg.active = true; }
-                mg.cut  += localCut;
-                mg.fill += localFill;
-                mg.ptCnt++;
-            }
-        }
-    }
-
-    // ── G) Sonuçları göster ────────────────────────────────────────────────────
-    let html = ''; let sectorIndex = 1;
-    macroGrids.forEach(mg => {
-        if (!mg.active || (mg.cut + mg.fill < 0.001)) return;
-        let req = Math.ceil((mg.cut + mg.fill) / cap);
-        html += `<tr>
-            <td>Matris-${sectorIndex++}</td>
-            <td>${mg.cx.toFixed(2)}</td>
-            <td>${mg.cy.toFixed(2)}</td>
-            <td style="color:#2ecc71;font-weight:bold;">${mg.cut.toFixed(3)}</td>
-            <td style="color:#e74c3c;font-weight:bold;">${mg.fill.toFixed(3)}</td>
-            <td>${req}</td>
-            <td>${mg.cut > mg.fill ? 'Hafriyat Çıkışı' : 'Dolgu Temini'}</td>
-        </tr>`;
-    });
-
-    document.getElementById('r-cut').innerText   = totalYarma.toFixed(3) + ' m³';
-    document.getElementById('r-fill').innerText  = totalDolgu.toFixed(3) + ' m³';
-    document.getElementById('r-trip').innerText  = Math.ceil((totalYarma + totalDolgu) / cap) + ' Sefer';
-    document.getElementById('res-body').innerHTML = html || '<tr><td colspan="7" style="color:#e74c3c">İki yüzey arasında çakışma bulunamadı. Koordinat sistemlerini kontrol edin.</td></tr>';
-    document.getElementById('res-area').style.display = 'block';
-    let gridInfo = document.getElementById('r-grid');
-    if (gridInfo) gridInfo.innerText = gridSize + ' m grid (' + totalArea.toFixed(0) + ' m² alan)';
-}
-
-function zoomAll() { if(pts.length) map.fitBounds(L.latLngBounds(pts.map(p=>[p.y,p.x])), {padding:[30,30]}); }
-function saveState() { history.push(JSON.stringify({pts, lns})); if(history.length>30) history.shift(); }
-function undo() { if(history.length){ let s=JSON.parse(history.pop()); pts=s.pts; lns=s.lns; render(); } }
-function showInfo(t) { let i=document.getElementById('info-panel'); i.innerText=t; i.style.display='block'; }
-function hideInfo() { document.getElementById('info-panel').style.display='none'; }
-function toggleAcc(el) { el.parentElement.classList.toggle('active'); }
-function setMode(m) { mode=m; moveTarget=null; lineStart=null; advSelectedShape=null; lyrTemp.clearLayers(); measurePts=[]; profilePts=[]; document.querySelectorAll('.btn').forEach(b=>b.classList.remove('btn-active')); document.getElementById('btn-'+m)?.classList.add('btn-active'); hideInfo(); document.getElementById('adv-params').style.display='none'; document.getElementById('geo-params').style.display='none'; if(m === 'delete') map.dragging.disable(); else map.dragging.enable(); }
-function setAdvMode(m) { setMode(m); document.getElementById('adv-params').style.display='block'; document.getElementById('pnl-polar').style.display=m==='polar'?'block':'none'; document.getElementById('pnl-offset').style.display=m==='offset'?'block':'none'; document.getElementById('pnl-mirror').style.display=m==='mirror'?'block':'none'; }
-function setGeoMode(m) { geoMode=m; setMode('geo'); document.getElementById('geo-params').style.display='block'; document.getElementById('geo-p2-container').style.display=m==='rect'?'block':'none'; document.getElementById('geo-sides-container').style.display=m==='polygon'?'block':'none'; }
-function resetMode() { setMode('idle'); }
-
-function download(c, n) { let a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c])); a.download=n; a.click(); }
-
-// 🛠️ DXF EXPORT FIX (AC1009/AutoCAD R12 Standardına indirgendi ve format hataları giderildi)
-function exportDXF() {
-    const ACI_COLORS = [1,2,3,4,5,6,30,40,50,70,80,90,110,120,130,140,150,160,170,180,190,200,210,220,230];
-    const layerColorMap = {};
-    function getLayerColor(layName) {
-        if (layerColorMap[layName] !== undefined) return layerColorMap[layName];
-        let hash = 0; for (let c of (layName||'0')) hash = (hash*31 + c.charCodeAt(0)) & 0xffff;
-        let color = ACI_COLORS[hash % ACI_COLORS.length];
-        layerColorMap[layName] = color;
-        return color;
-    }
-
-    let allLayers = new Set();
-    pts.forEach(p => allLayers.add(p.lay || '0'));
-    lns.forEach(l => allLayers.add(l.lay || '0'));
-
-    let d = '';
-    // --- HEADER (R12 / AC1009 Uyumlu - Hata vermeyen en temiz yapı) ---
-    d += '0\nSECTION\n2\nHEADER\n';
-    d += '9\n$ACADVER\n1\nAC1009\n'; 
-    d += '0\nENDSEC\n';
-
-    // --- TABLES ---
-    d += '0\nSECTION\n2\nTABLES\n';
-
-    d += '0\nTABLE\n2\nLTYPE\n70\n1\n';
-    d += '0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n';
-    d += '0\nENDTABLE\n';
-
-    let allLayersFinal = new Set(allLayers);
-    pts.forEach(p => allLayersFinal.add((p.lay||'0') + '_LBL'));
+    lyrPts.clearLayers();
+    lyrLns.clearLayers();
+    const tBody = document.getElementById('tBody');
+    tBody.innerHTML = '';
     
-    d += '0\nTABLE\n2\nLAYER\n70\n' + allLayersFinal.size + '\n';
-    allLayersFinal.forEach(layName => {
-        let color = layName.endsWith('_LBL') ? 7 : getLayerColor(layName);
-        d += '0\nLAYER\n2\n' + layName + '\n70\n0\n62\n' + color + '\n6\nCONTINUOUS\n';
-    });
-    d += '0\nENDTABLE\n';
+    const pSize = document.getElementById('ptSize').value;
+    const pColor = document.getElementById('ptColor').value;
+    const lWidth = document.getElementById('lnWidth').value;
+    const lColor = document.getElementById('lnColor').value;
+    const lblMode = document.getElementById('labelMode').value;
 
-    d += '0\nTABLE\n2\nSTYLE\n70\n1\n';
-    d += '0\nSTYLE\n2\nSTANDARD\n70\n0\n40\n0.0\n41\n1.0\n50\n0.0\n71\n0\n42\n0.2\n3\ntxt\n4\n\n';
-    d += '0\nENDTABLE\n';
+    lns.forEach((lineObj, idx) => {
+        const poly = L.polyline(
+            [[lineObj.from.y, lineObj.from.x], [lineObj.to.y, lineObj.to.x]], 
+            { color: lColor, weight: parseInt(lWidth), opacity: 0.8 }
+        ).addTo(lyrLns);
+        lineObj.leafletPoly = poly; 
 
-    d += '0\nENDSEC\n';
-
-    // --- BLOCKS (Bazı CAD programları Entities'den önce Blocks tablosunu zorunlu ister) ---
-    d += '0\nSECTION\n2\nBLOCKS\n0\nENDSEC\n';
-
-    // --- ENTITIES ---
-    d += '0\nSECTION\n2\nENTITIES\n';
-
-    pts.forEach(p => {
-        let lay = p.lay || '0';
-        let color = getLayerColor(lay);
-        let px = p.x || 0; let py = p.y || 0; let pz = p.z || 0;
-
-        d += '0\nPOINT\n8\n' + lay + '\n62\n' + color + '\n';
-        d += '10\n' + px.toFixed(6) + '\n20\n' + py.toFixed(6) + '\n30\n' + pz.toFixed(6) + '\n';
-
-        let lblLay = lay + '_LBL';
-        d += '0\nTEXT\n8\n' + lblLay + '\n62\n7\n';                        
-        d += '10\n' + (px + 0.3).toFixed(6) + '\n20\n' + (py + 0.3).toFixed(6) + '\n30\n' + pz.toFixed(6) + '\n';
-        d += '40\n0.5\n';                      
-        d += '1\n' + (p.id || 'P') + ' (' + pz.toFixed(2) + ')\n';
+        poly.on('click', (e) => {
+            if (mode === 'delLine') {
+                L.DomEvent.stopPropagation(e);
+                if(confirm("Hat silinsin mi?")) { lns.splice(idx, 1); render(); }
+            }
+        });
     });
 
-    lns.forEach(l => {
-        let lay = l.lay || '0';
-        let color = getLayerColor(lay);
-        let fx = l.from.x || 0; let fy = l.from.y || 0; let fz = l.from.z || 0;
-        let tx = l.to.x || 0;   let ty = l.to.y || 0;   let tz = l.to.z || 0;
+    pts.forEach((p, i) => {
+        const ptColorToUse = p.fileColor || pColor; // dosyadan geldiyse o dosyanın rengi, yoksa genel ayar
+        const iconHtml = `<div id="pt-icon-${i}" style="width:${pSize}px; height:${pSize}px; background:${ptColorToUse}; border:2px solid white; border-radius:50%; box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>`;
 
-        d += '0\nLINE\n8\n' + lay + '\n62\n' + color + '\n';
-        d += '10\n' + fx.toFixed(6) + '\n20\n' + fy.toFixed(6) + '\n30\n' + fz.toFixed(6) + '\n';
-        d += '11\n' + tx.toFixed(6) + '\n21\n' + ty.toFixed(6) + '\n31\n' + tz.toFixed(6) + '\n';
-    });
+        const marker = L.marker([p.y, p.x], {
+            draggable: true,
+            icon: L.divIcon({ className: 'custom-pt', html: iconHtml, iconSize: [pSize, pSize], iconAnchor: [pSize/2, pSize/2] })
+        }).addTo(lyrPts);
 
-    d += '0\nENDSEC\n0\nEOF\n';
-    download(d, 'webcad_proje.dxf');
-}
+        p.leafletMarker = marker; 
 
-function exportXLS() { let ws=XLSX.utils.json_to_sheet(pts); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "KoordinatListesi"); XLSX.writeFile(wb, "webcad_koordinat.xlsx"); }
-function exportXYZ() { download(pts.map(p=>`${p.id} ${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)} ${p.lay}`).join('\n'), "nokta_bulutu.xyz"); }
-function exportKML() { let k=`<?xml version="1.0" encoding="UTF-8"?><kml><Document>`; pts.forEach(p=>k+=`<Placemark><name>${p.id}</name><Point><coordinates>${p.y},${p.x},${p.z}</coordinates></Point></Placemark>`); k+=`</Document></kml>`; download(k,"google_earth.kml"); }
-function exportPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Hassas Kubaj Raporu", 14, 15); doc.autoTable({ html: '#kubajTable', startY: 23 }); doc.save("Resmi_Hacim_Hesap_Raporu.pdf"); }
-
-// ── NCN / XYZ / TXT Dosya Yükleyici ─────────────────────────────────────────
-let _kubajStatus = {nebati: false, kazi: false};
-
-function loadKubaFile(input, surface) {
-    const file = input.files[0];
-    if (!file) return;
-    const labelId = surface === 'nebati' ? 'k-lbl-nebati' : 'k-lbl-kazi';
-    const statusEl = document.getElementById(labelId);
-    if (statusEl) { statusEl.textContent = '⏳ ' + file.name + ' okunuyor...'; statusEl.style.color = '#f1c40f'; }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const parsed = parseNCN(e.target.result);
-        if (parsed.length < 3) {
-            if (statusEl) { statusEl.textContent = '⚠️ Geçerli nokta bulunamadı!'; statusEl.style.color = '#e74c3c'; }
-            return alert('Dosyada geçerli nokta verisi bulunamadı!\nBeklenen format: ID  Y(Doğu)  X(Kuzey)  Z');
-        }
-        if (surface === 'nebati') { k_nebati = parsed; _kubajStatus.nebati = true; }
-        else                      { k_kazi   = parsed; _kubajStatus.kazi   = true; }
-        if (statusEl) { statusEl.textContent = '✅ ' + file.name + ' (' + parsed.length + ' nokta)'; statusEl.style.color = '#2ecc71'; }
-    };
-    reader.onerror = function() { alert('Dosya okunamadı!'); };
-    reader.readAsText(file, 'utf-8');
-}
-
-function parseNCN(text) {
-    const lines = text.split(/\r?\n/);
-    const pts = []; const seen = new Set();
-    for (const line of lines) {
-        const t = line.trim();
-        if (!t || t.startsWith('#') || t.startsWith('//')) continue;
-        const parts = t.split(/[\s,;]+/);
-        if (parts.length < 4) continue;
-        const id = parts[0];
-        const v1 = parseFloat(parts[1]), v2 = parseFloat(parts[2]), v3 = parseFloat(parts[3]);
-        if (isNaN(v1) || isNaN(v2) || isNaN(v3)) continue;
+        let lblText = "";
+        if(lblMode === 'id') lblText = p.id;
+        else if(lblMode === 'z') lblText = p.z;
+        else if(lblMode === 'both') lblText = `${p.id}\n${p.z}`;
         
-        let x, y, z;
-        if (v1 > v2) { x = v1; y = v2; z = v3; }  
-        else         { y = v1; x = v2; z = v3; }   
-        const key = x.toFixed(3) + ',' + y.toFixed(3);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        pts.push({id, x, y, z});
+        if(lblMode !== 'none') {
+            marker.bindTooltip(String(lblText), { permanent: true, direction: "top", className: "cad-label", offset: [0, -pSize/2] });
+        }
+
+        marker.on('dragstart', (e) => {
+            dragStartPos = e.target.getLatLng();
+            document.getElementById('delta-box').style.display = 'block';
+            highlightRow(i);
+        });
+
+        marker.on('drag', (e) => {
+            const curr = e.target.getLatLng();
+            pts[i].y = curr.lat;
+            pts[i].x = curr.lng;
+            document.getElementById(`iy-${i}`).value = curr.lat.toFixed(3);
+            document.getElementById(`ix-${i}`).value = curr.lng.toFixed(3);
+
+            const dY = (curr.lat - dragStartPos.lat) * 100;
+            const dX = (curr.lng - dragStartPos.lng) * 100;
+            document.getElementById('delta-box').innerHTML = `<b>${p.id}</b> ΔY:${dY.toFixed(1)}cm | ΔX:${dX.toFixed(1)}cm`;
+            updateConnectedLines(p);
+        });
+
+        marker.on('dragend', () => { document.getElementById('delta-box').style.display = 'none'; });
+
+        marker.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            if (mode === 'delPt') { deletePoint(i); return; }
+            if (mode === 'line') { handleLineClick(p); return; }
+            highlightRow(i);
+        });
+
+        const tr = document.createElement('tr');
+        tr.id = `row-${i}`;
+        tr.innerHTML = `
+            <td><input class="coord-inp" value="${p.id}" onchange="pts[${i}].id=this.value;render()"></td>
+            <td><input id="iy-${i}" class="coord-inp" type="number" step="0.01" value="${p.y.toFixed(3)}" onchange="updatePtFromTable(${i}, 'y', this.value)"></td>
+            <td><input id="ix-${i}" class="coord-inp" type="number" step="0.01" value="${p.x.toFixed(3)}" onchange="updatePtFromTable(${i}, 'x', this.value)"></td>
+            <td><input class="coord-inp" type="number" step="0.01" value="${p.z}" onchange="pts[${i}].z=parseFloat(this.value);render()"></td>
+            <td>${p.fileTag ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.fileColor};margin-right:3px;"></span><span title="${p.fileTag}" style="font-size:9px;">${p.fileTag.length>10?p.fileTag.slice(0,9)+'…':p.fileTag}</span>` : ''}</td>
+            <td><button onclick="deletePoint(${i})" style="color:red;border:none;background:none;cursor:pointer;">🗑️</button></td>
+        `;
+        tBody.appendChild(tr);
+    });
+}
+
+function renderStylesOnly() {
+    const pSize = document.getElementById('ptSize').value;
+    const pColor = document.getElementById('ptColor').value;
+    const lWidth = document.getElementById('lnWidth').value;
+    const lColor = document.getElementById('lnColor').value;
+
+    pts.forEach((p, i) => {
+        const div = document.getElementById(`pt-icon-${i}`);
+        if(div) { div.style.width = pSize + 'px'; div.style.height = pSize + 'px'; div.style.background = p.fileColor || pColor; }
+    });
+    lns.forEach(l => { if(l.leafletPoly) l.leafletPoly.setStyle({ color: lColor, weight: parseInt(lWidth) }); });
+}
+
+function updateConnectedLines(pointObj) {
+    lns.forEach(l => {
+        if (l.from === pointObj || l.to === pointObj) {
+            if(l.leafletPoly) { l.leafletPoly.setLatLngs([[l.from.y, l.from.x], [l.to.y, l.to.x]]); }
+        }
+    });
+}
+
+function updatePtFromTable(idx, axis, val) {
+    const v = parseFloat(val);
+    if(axis === 'y') pts[idx].y = v;
+    if(axis === 'x') pts[idx].x = v;
+    if(pts[idx].leafletMarker) pts[idx].leafletMarker.setLatLng([pts[idx].y, pts[idx].x]);
+    updateConnectedLines(pts[idx]);
+}
+
+// --- OTOMATİK HAT ALGORİTMALARI ---
+function autoLink(type) {
+    if(pts.length < 2) return alert("En az 2 nokta gerekli!");
+    lns = []; 
+    if(type === 'seq') {
+        for(let i=0; i < pts.length - 1; i++) lns.push({ from: pts[i], to: pts[i+1] });
+        alert("Noktalar liste sırasına göre bağlandı.");
+    } 
+    else if(type === 'near') {
+        const minStr = prompt("Minimum hat uzunluğu (metre)?", "0.1");
+        const maxStr = prompt("Maksimum hat uzunluğu (metre)?", "50");
+        if(minStr === null || maxStr === null) return;
+        const minDist = parseFloat(minStr);
+        const maxDist = parseFloat(maxStr);
+
+        let unvisited = [...pts];
+        let current = unvisited.shift();
+
+        while(unvisited.length > 0) {
+            let nearestIdx = -1;
+            let currentMinDist = Infinity;
+            unvisited.forEach((p, idx) => {
+                const d = Math.sqrt(Math.pow(current.x - p.x, 2) + Math.pow(current.y - p.y, 2));
+                if(d < currentMinDist) { currentMinDist = d; nearestIdx = idx; }
+            });
+            if(nearestIdx !== -1) {
+                if(currentMinDist >= minDist && currentMinDist <= maxDist) {
+                    const next = unvisited[nearestIdx];
+                    lns.push({ from: current, to: next });
+                    unvisited.splice(nearestIdx, 1);
+                    current = next;
+                } else {
+                    const next = unvisited.splice(nearestIdx, 1)[0];
+                    current = next; 
+                }
+            } else break;
+        }
+        alert(`Min: ${minDist}m - Max: ${maxDist}m aralığındaki en yakınlar bağlandı.`);
     }
-    return pts;
+    render();
+}
+
+// --- STANDART İŞLEMLER ---
+function setMode(m) {
+    mode = (mode === m) ? 'idle' : m;
+    lineStartPt = null;
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active'));
+    if(mode !== 'idle') document.getElementById('btn-'+m)?.classList.add('btn-active');
+}
+
+function onMapClick(e) {
+    if(mode === 'add') {
+        pts.push({ id: "P" + (pts.length + 1), y: e.latlng.lat, x: e.latlng.lng, z: 0 });
+        render(); highlightRow(pts.length - 1);
+    }
+}
+
+function handleLineClick(p) {
+    if(!lineStartPt) {
+        lineStartPt = p; alert(`${p.id} seçildi. Hedef noktayı seçin.`);
+    } else {
+        if(lineStartPt !== p) lns.push({ from: lineStartPt, to: p });
+        lineStartPt = null; render();
+    }
+}
+
+function deletePoint(index) {
+    if(confirm("Nokta silinsin mi?")) {
+        const pt = pts[index];
+        lns = lns.filter(l => l.from !== pt && l.to !== pt);
+        pts.splice(index, 1); render();
+    }
+}
+
+function highlightRow(idx) {
+    document.querySelectorAll('tr').forEach(tr => tr.classList.remove('selected-row'));
+    const row = document.getElementById(`row-${idx}`);
+    if(row) { row.classList.add('selected-row'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+
+function zoomAll() {
+    if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.y,p.x]))).getBounds().pad(0.1));
+}
+
+// --- DOSYA YÖNETİMİ VE PARSERLAR ---
+// NOT: loadFile artık ÇOKLU DOSYA destekler. Yeni bir dosya seçildiğinde
+// mevcut pts/lns dizileri SİLİNMEZ, yeni noktalar üzerine EKLENİR (append).
+// Her dosyaya kendi rengi ve "fileTag" (kaynak adı) atanır, böylece 2-3-4-5
+// farklı NCN dosyası üst üste yüklenip ekranda ayırt edilebilir.
+function loadFile(input) {
+    const files = Array.from(input.files || []);
+    if(!files.length) return;
+
+    // Birden çok dosya seçilmişse hepsini sırayla işleyeceğiz
+    let pending = files.length;
+
+    files.forEach(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if(ext === 'xls' || ext === 'xlsx') {
+            alert(`"${file.name}": Excel import için lütfen önce CSV veya Metin (TXT/NCN) formatına dönüştürün.`);
+            pending--;
+            if(pending === 0) { render(); zoomAll(); input.value=''; }
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target.result;
+            const tempArr = [];
+
+            if (ext === 'csv') parseCSV(content, tempArr);
+            else if (ext === 'kml') parseKML(content, tempArr);
+            else if (ext === 'geojson' || ext === 'json') parseGeoJSON(content, tempArr);
+            else parseTextData(content, tempArr); // NCN, XYZ, TXT fallback
+
+            // Bu dosyaya özel renk ve etiket ata (üst üste görünüm + ayırt edilebilirlik)
+            const color = fileColorPalette[loadedFileCount % fileColorPalette.length];
+            const fileTag = file.name;
+            loadedFileCount++;
+
+            tempArr.forEach(p => { p.fileTag = fileTag; p.fileColor = color; });
+
+            // Aynı isimli nokta ID çakışmasını önlemek için, eklenen dosyanın
+            // noktalarına dosya sırası önekı eklenir (sadece çakışma varsa)
+            const existingIds = new Set(pts.map(p => p.id));
+            tempArr.forEach(p => {
+                if(existingIds.has(p.id)) {
+                    p.id = p.id + "_F" + loadedFileCount;
+                }
+                existingIds.add(p.id);
+            });
+
+            pts = pts.concat(tempArr); // ESKİ NOKTALAR SİLİNMEZ, YENİLER EKLENİR
+
+            pending--;
+            if(pending === 0) {
+                render(); zoomAll(); input.value = '';
+            }
+        };
+        reader.readAsText(file, "UTF-8");
+    });
+}
+
+// Ana ekrandaki nokta bulutunu tamamen temizlemek istenirse kullanılır
+function clearAllPoints() {
+    if(!pts.length) return;
+    if(confirm(`Ekrandaki TÜM noktalar (${pts.length} adet) ve hatlar silinsin mi?`)) {
+        pts = []; lns = []; loadedFileCount = 0;
+        render();
+    }
+}
+
+function parseTextData(data, targetArray) {
+    data.split('\n').forEach(line => {
+        let d = line.trim().replace(/,/g, '.').split(/\s+/);
+        if(d.length >= 3) {
+            let id = d[0], y = parseFloat(d[1]), x = parseFloat(d[2]), z = parseFloat(d[3] || 0);
+            if(isNaN(parseFloat(id)) || d.length > 3) {
+                 // ID Y X Z (Zaten doğru atandı)
+            } else {
+                 // Y X Z (Sadece koordinat)
+                 id = "P" + (targetArray.length + 1); 
+                 y = parseFloat(d[0]); x = parseFloat(d[1]); z = parseFloat(d[2]||0); 
+            }
+            if(!isNaN(y) && !isNaN(x)) targetArray.push({ id: id, y: y, x: x, z: z });
+        }
+    });
+}
+
+function parseCSV(data, targetArray) {
+    const lines = data.split('\n');
+    lines.forEach((line, i) => {
+        if(i===0 && line.toLowerCase().match(/[a-z]/i)) return; // Header atla
+        const d = line.trim().replace(/,/g, '.').split(/[\s;]+/); // Noktalı virgül veya boşluk ile ayır
+        if(d.length >= 3) {
+            let id = d[0], y = parseFloat(d[1]), x = parseFloat(d[2]), z = parseFloat(d[3] || 0);
+            if(isNaN(parseFloat(id)) || d.length > 3) { } 
+            else { id = "P" + (targetArray.length + 1); y = parseFloat(d[0]); x = parseFloat(d[1]); z = parseFloat(d[2]||0); }
+            if(!isNaN(y) && !isNaN(x)) targetArray.push({ id: id, y: y, x: x, z: z });
+        }
+    });
+}
+
+function parseKML(xmlStr, targetArray) {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlStr, "text/xml");
+    const placemarks = xml.getElementsByTagName("Placemark");
+    
+    for(let pm of placemarks) {
+        const name = pm.getElementsByTagName("name")[0]?.textContent || "P"+(targetArray.length+1);
+        const coords = pm.getElementsByTagName("coordinates")[0]?.textContent.trim();
+        if(coords) {
+            const c = coords.split(',');
+            targetArray.push({ id: name, x: parseFloat(c[0]), y: parseFloat(c[1]), z: parseFloat(c[2]||0) });
+        }
+    }
+}
+
+function parseGeoJSON(jsonStr, targetArray) {
+    try {
+        const geo = JSON.parse(jsonStr);
+        const features = geo.features || (geo.type === 'Feature' ? [geo] : []);
+        features.forEach(f => {
+            if(f.geometry && f.geometry.type === 'Point') {
+                const c = f.geometry.coordinates;
+                targetArray.push({
+                    id: f.properties?.name || f.properties?.id || "P"+(targetArray.length+1),
+                    x: c[0], y: c[1], z: c[2] || 0
+                });
+            }
+        });
+    } catch(e) { alert("GeoJSON format hatası"); }
+}
+
+function exportData(type) {
+    if(!pts.length) return alert("Veri yok!");
+    let content = "", filename = "Proje." + type, mime = "text/plain";
+
+    if(type === 'xls') {
+        const ws = XLSX.utils.json_to_sheet(pts.map(p => ({"No":p.id, "Y":p.y, "X":p.x, "Z":p.z})));
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Noktalar");
+        XLSX.writeFile(wb, "Proje.xlsx"); return;
+    } 
+    else if (type === 'ncn') { content = pts.map(p => `${p.id}\t${p.y.toFixed(3)}\t${p.x.toFixed(3)}\t${p.z.toFixed(3)}`).join("\r\n"); } 
+    else if (type === 'xyz') { content = pts.map(p => `${p.y.toFixed(3)} ${p.x.toFixed(3)} ${p.z.toFixed(3)}`).join("\r\n"); }
+    else if (type === 'csv') {
+        content = "ID,Y,X,Z\n" + pts.map(p => `${p.id},${p.y},${p.x},${p.z}`).join("\n");
+        mime = "text/csv";
+    }
+    else if (type === 'dxf') {
+        content = "0\nSECTION\n2\nENTITIES\n";
+        pts.forEach(p => content += `0\nPOINT\n8\nNOKTA\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`);
+        lns.forEach(l => content += `0\nLINE\n8\nHAT\n10\n${l.from.x}\n20\n${l.from.y}\n11\n${l.to.x}\n21\n${l.to.y}\n`);
+        content += "0\nENDSEC\n0\nEOF\n";
+        mime = "application/dxf";
+    }
+    else if (type === 'kml') {
+        content = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+    ${pts.map(p => `<Placemark><name>${p.id}</name><Point><coordinates>${p.x},${p.y},${p.z}</coordinates></Point></Placemark>`).join('')}
+    ${lns.map(l => `<Placemark><LineString><coordinates>${l.from.x},${l.from.y},0 ${l.to.x},${l.to.y},0</coordinates></LineString></Placemark>`).join('')}
+</Document></kml>`;
+        mime = "application/vnd.google-earth.kml+xml";
+    }
+    else if (type === 'geojson') {
+        const fc = {
+            type: "FeatureCollection",
+            features: pts.map(p => ({
+                type: "Feature", properties: { name: p.id, z: p.z }, geometry: { type: "Point", coordinates: [p.x, p.y, p.z] }
+            })).concat(lns.map(l => ({
+                type: "Feature", properties: { type: "line" }, geometry: { type: "LineString", coordinates: [[l.from.x, l.from.y], [l.to.x, l.to.y]] }
+            })))
+        };
+        content = JSON.stringify(fc);
+        mime = "application/json";
+    }
+    
+    download(content, filename, mime);
+}
+
+function download(content, filename, mimeType) {
+    const blob = new Blob([content], {type: mimeType || 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url); 
+}
+
+// ==========================================
+// --- KÜBAJ VE LOJİSTİK MOTORU ---
+// ==========================================
+
+function loadKubaFile(input, target) {
+    const files = Array.from(input.files || []);
+    if(!files.length) return;
+
+    let pending = files.length;
+    const newlyLoaded = [];
+
+    files.forEach(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            const data = e.target.result;
+            let tempArr = [];
+
+            if (ext === 'csv') parseCSV(data, tempArr);
+            else if (ext === 'kml') parseKML(data, tempArr);
+            else if (ext === 'geojson' || ext === 'json') parseGeoJSON(data, tempArr);
+            else parseTextData(data, tempArr);
+
+            // ÖNEMLİ: target dizisine EKLENİR (append), eski dosyaların noktaları SİLİNMEZ.
+            if(target === 'nebati') {
+                k_nebati = k_nebati.concat(tempArr);
+                k_nebati_files.push({ name: file.name, count: tempArr.length });
+            } else {
+                k_kazi = k_kazi.concat(tempArr);
+                k_kazi_files.push({ name: file.name, count: tempArr.length });
+            }
+            newlyLoaded.push({ name: file.name, count: tempArr.length });
+
+            pending--;
+            if(pending === 0) {
+                updateKubaFileList(target);
+                const totalPts = target === 'nebati' ? k_nebati.length : k_kazi.length;
+                const summary = newlyLoaded.map(f => `${f.name}: ${f.count} nokta`).join('\n');
+                alert(`${target === 'nebati' ? 'Nebati' : 'Kazı/Dolgu'} yüzeyine eklendi:\n${summary}\n\nBu yüzeydeki TOPLAM nokta sayısı: ${totalPts}`);
+            }
+        };
+        reader.readAsText(file, "UTF-8");
+    });
+
+    input.value = ''; // aynı dosyaları tekrar seçebilmek için input'u sıfırla
+}
+
+function updateKubaFileList(target) {
+    const listDiv = document.getElementById(target === 'nebati' ? 'nebati-file-list' : 'kazi-file-list');
+    const files = target === 'nebati' ? k_nebati_files : k_kazi_files;
+    const total = target === 'nebati' ? k_nebati.length : k_kazi.length;
+    if(!files.length) { listDiv.innerHTML = 'Henüz dosya yüklenmedi.'; return; }
+    listDiv.innerHTML = files.map(f => `• ${f.name} (${f.count} nokta)`).join('<br>') + `<br><b style="color:#fff;">Toplam: ${total} nokta</b>`;
+}
+
+function clearKubaSurface(target) {
+    if(target === 'nebati') {
+        if(!k_nebati.length) return;
+        if(confirm(`Nebati yüzeyindeki tüm noktalar (${k_nebati.length} adet, ${k_nebati_files.length} dosya) silinsin mi?`)) {
+            k_nebati = []; k_nebati_files = []; updateKubaFileList('nebati');
+        }
+    } else {
+        if(!k_kazi.length) return;
+        if(confirm(`Kazı/Dolgu yüzeyindeki tüm noktalar (${k_kazi.length} adet, ${k_kazi_files.length} dosya) silinsin mi?`)) {
+            k_kazi = []; k_kazi_files = []; updateKubaFileList('kazi');
+        }
+    }
+}
+
+function toggleKubajMethod() {
+    const method = document.querySelector('input[name="k-method"]:checked').value;
+    const areaLabel = document.getElementById('k-area-label');
+    const tolWrap = document.getElementById('k-tol-wrap');
+    const hint = document.getElementById('k-method-hint');
+    if(method === 'tin') {
+        areaLabel.innerText = 'Grid Tarama Aralığı (m):';
+        tolWrap.style.opacity = '0.4';
+        hint.innerText = 'TIN modunda her iki yüzey de kendi Delaunay üçgen ağına dönüştürülür; iki yüzeyin ortak XY alanı seçtiğiniz grid aralığıyla taranır, her hücrede iki yüzeyin Z\'si üçgen içi enterpolasyonla bulunur ve hacim Σ(Δz × hücre alanı) olarak toplanır. Bu, Civil3D\'nin TIN-TIN hacim hesabına çok yakın sonuç verir.';
+    } else {
+        areaLabel.innerText = 'Birim Grid Alanı (m²):';
+        tolWrap.style.opacity = '1';
+        hint.innerText = 'Eski yöntem: her nebati noktası, tolerans yarıçapı içindeki en yakın kazı noktasıyla eşleştirilir ve ΔZ × sabit grid alanı ile hacim hesaplanır. Noktalar dosyalar arasında birebir örtüşmüyorsa hatalı sonuç verebilir; TIN modu önerilir.';
+    }
+}
+
+// ==========================================
+// --- DELAUNAY TRIANGULATION (Bowyer-Watson) ---
+// ==========================================
+// Basit ama sağlam bir 2D Delaunay triangulation uygulaması.
+// Girdi: [{x,y,z}, ...]  Çıktı: [[i0,i1,i2], ...] (points dizisindeki indeksler)
+function delaunayTriangulate(points) {
+    const n = points.length;
+    if(n < 3) return [];
+
+    // Süper üçgen için sınırları bul (tüm noktaları kapsayan büyük üçgen)
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const p of points) {
+        if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+        if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    }
+    const dx = maxX-minX, dy = maxY-minY;
+    const dMax = Math.max(dx,dy,1) * 10;
+    const midX = (minX+maxX)/2, midY=(minY+maxY)/2;
+
+    // Çalışma noktaları: orijinal + 3 süper üçgen köşesi
+    const pts2 = points.map(p => ({x:p.x, y:p.y}));
+    const superA = pts2.length;
+    const superB = pts2.length+1;
+    const superC = pts2.length+2;
+    pts2.push({x: midX - dMax, y: midY - dMax});
+    pts2.push({x: midX + dMax, y: midY - dMax});
+    pts2.push({x: midX, y: midY + dMax});
+
+    function circumcircle(ia, ib, ic) {
+        const A = pts2[ia], B = pts2[ib], C = pts2[ic];
+        const ax=A.x, ay=A.y, bx=B.x, by=B.y, cx=C.x, cy=C.y;
+        const d = 2*(ax*(by-cy) + bx*(cy-ay) + cx*(ay-by));
+        if(Math.abs(d) < 1e-12) return null; // dejenere (çok ince/aynı doğru üstünde)
+        const ux = ((ax*ax+ay*ay)*(by-cy) + (bx*bx+by*by)*(cy-ay) + (cx*cx+cy*cy)*(ay-by)) / d;
+        const uy = ((ax*ax+ay*ay)*(cx-bx) + (bx*bx+by*by)*(ax-cx) + (cx*cx+cy*cy)*(bx-ax)) / d;
+        const r2 = (ax-ux)*(ax-ux) + (ay-uy)*(ay-uy);
+        return { x: ux, y: uy, r2: r2 };
+    }
+
+    let triangles = [[superA, superB, superC]];
+
+    for(let i=0; i<pts2.length-3; i++) {
+        const p = pts2[i];
+        const badTriangles = [];
+        const circumData = [];
+
+        for(const tri of triangles) {
+            const cc = circumcircle(tri[0], tri[1], tri[2]);
+            if(!cc) continue;
+            const distSq = (p.x-cc.x)*(p.x-cc.x) + (p.y-cc.y)*(p.y-cc.y);
+            if(distSq <= cc.r2 + 1e-9) badTriangles.push(tri);
+        }
+
+        // Bad üçgenlerin sınır kenarlarını bul (polygon hole boundary)
+        const edgeCount = new Map();
+        function edgeKey(a,b) { return a<b ? a+'_'+b : b+'_'+a; }
+        const edgeList = [];
+        for(const tri of badTriangles) {
+            const edges = [[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]];
+            for(const e of edges) {
+                const k = edgeKey(e[0],e[1]);
+                edgeCount.set(k, (edgeCount.get(k)||0)+1);
+                edgeList.push([e, k]);
+            }
+        }
+        const boundary = [];
+        const seen = new Set();
+        for(const [e,k] of edgeList) {
+            if(edgeCount.get(k) === 1 && !seen.has(k)) { boundary.push(e); seen.add(k); }
+        }
+
+        // Bad üçgenleri çıkar
+        triangles = triangles.filter(tri => !badTriangles.includes(tri));
+
+        // Yeni nokta ile sınır kenarlarından yeni üçgenler oluştur
+        for(const e of boundary) {
+            triangles.push([e[0], e[1], i]);
+        }
+    }
+
+    // Süper üçgen köşelerini içeren üçgenleri at
+    triangles = triangles.filter(tri => tri[0]<superA && tri[1]<superA && tri[2]<superA);
+
+    return triangles;
+}
+
+// Bir TIN (nokta dizisi + üçgen indeksleri) içinde verilen (x,y) için
+// barycentric interpolasyon ile Z döndürür. Nokta hiçbir üçgenin içinde
+// değilse null döner (extrapolasyon yapılmaz - Civil3D de TIN dışını hesaba katmaz).
+function buildTinIndex(points, triangles) {
+    // Basit ama yeterince hızlı: üçgenleri bounding-box ile önceden hesapla,
+    // grid taramasında sırayla test ederiz. Nokta sayısı pratik sahalarda
+    // (binlerce nokta) bu yaklaşım tarayıcıda sorunsuz çalışır.
+    return triangles.map(tri => {
+        const A = points[tri[0]], B = points[tri[1]], C = points[tri[2]];
+        return {
+            A, B, C,
+            minX: Math.min(A.x,B.x,C.x), maxX: Math.max(A.x,B.x,C.x),
+            minY: Math.min(A.y,B.y,C.y), maxY: Math.max(A.y,B.y,C.y)
+        };
+    });
+}
+
+function interpolateZ(tinIndex, x, y) {
+    for(const t of tinIndex) {
+        if(x < t.minX || x > t.maxX || y < t.minY || y > t.maxY) continue;
+        const {A,B,C} = t;
+        // Barycentric koordinatlar (standart formül)
+        const denom = (B.x-A.x)*(C.y-A.y) - (C.x-A.x)*(B.y-A.y);
+        if(Math.abs(denom) < 1e-12) continue;
+        const l1 = ((B.y-C.y)*(x-C.x) + (C.x-B.x)*(y-C.y)) / denom;
+        const l2 = ((C.y-A.y)*(x-C.x) + (A.x-C.x)*(y-C.y)) / denom;
+        const l3 = 1 - l1 - l2;
+        const eps = -1e-7;
+        if(l1 >= eps && l2 >= eps && l3 >= eps) {
+            return l1*A.z + l2*B.z + l3*C.z;
+        }
+    }
+    return null;
+}
+
+// ==========================================
+// --- TIN-TIN HACİM HESABI (Civil3D benzeri grid tarama) ---
+// ==========================================
+function calculateTinVolume(nebati, kazi, gridStep) {
+    if(nebati.length < 3 || kazi.length < 3) {
+        throw new Error("Delaunay üçgenleme için her yüzeyde en az 3 nokta gereklidir.");
+    }
+
+    const triN = delaunayTriangulate(nebati);
+    const triK = delaunayTriangulate(kazi);
+    const tinN = buildTinIndex(nebati, triN);
+    const tinK = buildTinIndex(kazi, triK);
+
+    // Ortak (kesişen) XY alanını bul — her iki yüzeyin de kapladığı bölge
+    const bx1 = Math.max(Math.min(...nebati.map(p=>p.x)), Math.min(...kazi.map(p=>p.x)));
+    const bx2 = Math.min(Math.max(...nebati.map(p=>p.x)), Math.max(...kazi.map(p=>p.x)));
+    const by1 = Math.max(Math.min(...nebati.map(p=>p.y)), Math.min(...kazi.map(p=>p.y)));
+    const by2 = Math.min(Math.max(...nebati.map(p=>p.y)), Math.max(...kazi.map(p=>p.y)));
+
+    if(bx2 <= bx1 || by2 <= by1) {
+        throw new Error("İki yüzeyin XY alanları kesişmiyor! Aynı koordinat bölgesine ait dosyalar yüklediğinizden emin olun.");
+    }
+
+    const step = Math.max(gridStep, 0.05); // çok küçük adımda tarayıcı donmasın
+    const cellArea = step * step;
+
+    let tCut = 0, tFill = 0;
+    let sampleCount = 0, matchedCount = 0;
+    const results = [];
+
+    const nx = Math.ceil((bx2-bx1)/step);
+    const ny = Math.ceil((by2-by1)/step);
+
+    // Çok büyük gridlerde tarayıcıyı kilitlememek için pratik bir üst sınır koy
+    const totalCells = nx*ny;
+    if(totalCells > 400000) {
+        throw new Error(`Grid hücre sayısı çok yüksek (${totalCells.toLocaleString('tr')}). Lütfen "Grid Tarama Aralığı"nı büyütün (örn. 1.0 - 2.0 m).`);
+    }
+
+    let id = 0;
+    for(let iy=0; iy<ny; iy++) {
+        const y = by1 + (iy+0.5)*step;
+        if(y > by2) continue;
+        for(let ix=0; ix<nx; ix++) {
+            const x = bx1 + (ix+0.5)*step;
+            if(x > bx2) continue;
+            sampleCount++;
+
+            const zN = interpolateZ(tinN, x, y);
+            const zK = interpolateZ(tinK, x, y);
+            if(zN === null || zK === null) continue; // iki TIN'in de kapsadığı noktalar sayılır
+
+            matchedCount++;
+            const deltaZ = zK - zN;
+            const volume = deltaZ * cellArea;
+
+            let cut=0, fill=0, status="Denge";
+            if(volume < -1e-9) { cut = Math.abs(volume); tCut += cut; status = "Ariyet/Depo Kazı Atımı"; }
+            else if(volume > 1e-9) { fill = volume; tFill += fill; status = "Dışarıdan Dolgu Temini"; }
+
+            id++;
+            if(id <= 100) {
+                results.push({ id, x, y, dz: deltaZ, cut, fill, trips: 0, status });
+            }
+        }
+    }
+
+    return { tCut, tFill, results, matchedCount, sampleCount, gridCellArea: cellArea, totalCells };
+}
+
+function calculateRouteVolume() {
+    if(k_nebati.length === 0 || k_kazi.length === 0) {
+        return alert("Lütfen hem Orijinal (Nebati) hem de Nihai (Kazı) zemin verilerini yükleyiniz.");
+    }
+
+    const method = document.querySelector('input[name="k-method"]:checked').value;
+    const cap = parseFloat(document.getElementById('k-cap').value) || 18;
+    const debugDiv = document.getElementById('kubaj-debug-info');
+
+    if(method === 'tin') {
+        const gridStep = parseFloat(document.getElementById('k-area').value) || 1.0;
+        let vol;
+        try {
+            vol = calculateTinVolume(k_nebati, k_kazi, gridStep);
+        } catch(err) {
+            return alert(err.message);
+        }
+
+        const tBody = document.getElementById('res-body');
+        tBody.innerHTML = '';
+        kubajResults = [];
+
+        vol.results.forEach(r => {
+            r.trips = Math.ceil((r.cut + r.fill) / cap);
+            kubajResults.push(r);
+            tBody.innerHTML += `<tr>
+                <td>Grid-${r.id}</td>
+                <td>${r.x.toFixed(3)}</td>
+                <td>${r.y.toFixed(3)}</td>
+                <td>${r.dz > 0 ? '+'+r.dz.toFixed(2) : r.dz.toFixed(2)}</td>
+                <td style="color:var(--danger)">${r.cut.toFixed(2)}</td>
+                <td style="color:var(--success)">${r.fill.toFixed(2)}</td>
+                <td>${r.trips}</td>
+                <td>${r.status}</td>
+            </tr>`;
+        });
+        if(vol.matchedCount > 100) {
+            tBody.innerHTML += `<tr><td colspan="8" style="color:#f1c40f; text-align:center;">... ve ${vol.matchedCount - 100} grid hücresi daha hesaplandı (CSV ile tümünü görebilirsiniz) ...</td></tr>`;
+        }
+
+        const totalTrips = Math.ceil((vol.tCut + vol.tFill) / cap);
+        document.getElementById('r-cut').innerText = vol.tCut.toFixed(2) + " m³";
+        document.getElementById('r-fill').innerText = vol.tFill.toFixed(2) + " m³";
+        document.getElementById('r-trip').innerText = totalTrips + " Sefer";
+        document.getElementById('res-area').style.display = 'block';
+        debugDiv.innerText = `Yöntem: Delaunay TIN/Grid Tarama | Grid hücre boyutu: ${vol.gridCellArea.toFixed(3)} m² | Taranan örnek: ${vol.sampleCount.toLocaleString('tr')} | Her iki yüzeyde de geçerli (kesişen) örnek: ${vol.matchedCount.toLocaleString('tr')}`;
+
+        alert(`TIN/Grid Hesaplama Tamamlandı!\nNet Kazı (Yarma): ${vol.tCut.toFixed(2)} m³\nNet Dolgu: ${vol.tFill.toFixed(2)} m³\nNet Fark: ${(vol.tCut-vol.tFill).toFixed(2)} m³`);
+        return;
+    }
+
+    // --- ESKİ YÖNTEM: Nokta Eşleştirme (Nearest-Neighbor) ---
+    let tCut = 0, tFill = 0;
+    const tBody = document.getElementById('res-body');
+    tBody.innerHTML = '';
+    kubajResults = [];
+
+    const gridArea = parseFloat(document.getElementById('k-area').value) || 1.0; 
+    const tolerance = parseFloat(document.getElementById('k-tol').value) || 1.0;
+
+    let matchedCount = 0;
+
+    k_nebati.forEach(p_orig => {
+        let p_final = null;
+        let minDist = tolerance;
+
+        k_kazi.forEach(p_kazi => {
+            let dist = Math.sqrt(Math.pow(p_kazi.x - p_orig.x, 2) + Math.pow(p_kazi.y - p_orig.y, 2));
+            if(dist <= minDist) {
+                minDist = dist;
+                p_final = p_kazi;
+            }
+        });
+        
+        if(p_final) {
+            matchedCount++;
+            let deltaZ = p_final.z - p_orig.z;
+            let volume = deltaZ * gridArea; 
+
+            let cut = 0, fill = 0, status = "Denge";
+            
+            if(volume < 0) {
+                cut = Math.abs(volume);
+                tCut += cut;
+                status = "Ariyet/Depo Kazı Atımı";
+            } else if (volume > 0) {
+                fill = volume;
+                tFill += fill;
+                status = "Dışarıdan Dolgu Temini";
+            }
+
+            let trips = Math.ceil((cut + fill) / cap);
+            
+            kubajResults.push({ id: matchedCount, x: p_orig.x, y: p_orig.y, dz: deltaZ, cut: cut, fill: fill, trips: trips, status: status });
+
+            if (matchedCount <= 100) {
+                tBody.innerHTML += `<tr>
+                    <td>Grid-${matchedCount}</td>
+                    <td>${p_orig.x.toFixed(3)}</td>
+                    <td>${p_orig.y.toFixed(3)}</td>
+                    <td>${deltaZ > 0 ? '+'+deltaZ.toFixed(2) : deltaZ.toFixed(2)}</td>
+                    <td style="color:var(--danger)">${cut.toFixed(2)}</td>
+                    <td style="color:var(--success)">${fill.toFixed(2)}</td>
+                    <td>${trips}</td>
+                    <td>${status}</td>
+                </tr>`;
+            }
+        }
+    });
+
+    if(matchedCount > 100) {
+        tBody.innerHTML += `<tr><td colspan="8" style="color:#f1c40f; text-align:center;">... ve ${matchedCount - 100} kayıt daha eşleşti (Dışa aktarım ile tümünü görebilirsiniz) ...</td></tr>`;
+    }
+
+    const totalTrips = Math.ceil((tCut + tFill) / cap);
+    
+    document.getElementById('r-cut').innerText = tCut.toFixed(2) + " m³";
+    document.getElementById('r-fill').innerText = tFill.toFixed(2) + " m³";
+    document.getElementById('r-trip').innerText = totalTrips + " Sefer";
+    document.getElementById('res-area').style.display = 'block';
+    debugDiv.innerText = `Yöntem: Eski Nokta Eşleştirme | Tolerans: ${tolerance} m | Eşleşen nokta: ${matchedCount}/${k_nebati.length}`;
+    
+    if(matchedCount === 0) {
+        alert("Eşleşen nokta bulunamadı! Lütfen 'Eşleşme Toleransı (m)' değerini artırarak (Örn: 5.0 veya 10.0) tekrar deneyin veya aynı koordinat bölgesine ait dosyalar yüklediğinizden emin olun.");
+    } else {
+        alert(`Hesaplama Tamamlandı!\nToplam Eşleşen Ağ Noktası: ${matchedCount}`);
+    }
+}
+
+function exportKubajCSV() {
+    if(kubajResults.length === 0) return alert("Dışa aktarılacak hesaplama bulunamadı.");
+    
+    let csv = "Eslesme No,X (Kuzey),Y (Dogu),Kot Farki,Yarma (m3),Dolgu (m3),Sefer Ihtiyaci,Lojistik Plani\n";
+    kubajResults.forEach(r => {
+        csv += `${r.id},${r.x.toFixed(3)},${r.y.toFixed(3)},${r.dz.toFixed(3)},${r.cut.toFixed(2)},${r.fill.toFixed(2)},${r.trips},${r.status}\n`;
+    });
+    
+    download(csv, "Kubaj_Lojistik_Raporu.csv", "text/csv");
 }
 
 init();
