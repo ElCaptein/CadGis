@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Mobile CADGIS Pro v2.6 - Enhanced KML/KMZ & Mobile Edition</title>
+    <title>Mobile CADGIS Pro v2.9 VANILYA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -144,12 +144,35 @@
                 grid-template-columns: 1fr 1fr !important;
             }
         }
+            #coord-box { position: absolute; bottom: calc(25vh + 8px); left: 10px; background: rgba(0,0,0,0.75); color: #fff; padding: 3px 8px; border-radius: 4px; font: 11px monospace; z-index: 3000; pointer-events: none; }
+        @media (max-width: 768px) { #coord-box { bottom: calc(30vh + 8px); } }
+
+        /* ===== Poligon modülü ===== */
+        .poly-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid #ddd;border-radius:5px;margin-bottom:3px;cursor:pointer;font-size:11px;background:#fff}
+        .poly-row.on{border-color:#f1c40f;background:#fff9db;box-shadow:0 0 0 2px #f1c40f66}
+        .poly-row .sw{width:12px;height:12px;border-radius:3px;flex:none}
+        .poly-row .act{margin-left:auto;display:flex;gap:2px}
+        .poly-row .act button{border:none;background:none;cursor:pointer;font-size:12px;padding:0 2px}
+        .sw-dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+        .poly-lbl{transform:translate(-50%,-50%);white-space:nowrap;background:rgba(0,0,0,.75);color:#fff;border:2px solid;border-radius:6px;padding:2px 6px;font:11px/1.25 'Segoe UI',sans-serif;text-align:center;pointer-events:none}
+        .poly-lbl.sel{background:#f1c40f;color:#000}
+        .poly-edge{transform:translate(-50%,-50%);color:#ffeaa7;font:10px monospace;text-shadow:1px 1px 0 #000,-1px -1px 0 #000;white-space:nowrap;pointer-events:none}
+        .poly-num{transform:translate(6px,-16px);color:#fff;background:#c0392b;border-radius:8px;padding:0 4px;font:bold 10px monospace;pointer-events:none}
+        #poly-info{display:none;position:absolute;bottom:calc(25vh + 42px);left:50%;transform:translateX(-50%);background:rgba(20,20,20,.92);color:#fff;padding:6px 12px;border-radius:8px;border:2px solid #f1c40f;font-size:12px;z-index:3000;max-width:95vw}
+        #poly-info button{background:none;border:none;color:#fff;cursor:pointer;margin-left:6px}
+        #toast{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;z-index:9500;max-width:92vw;text-align:center;pointer-events:none}
+        .pr-tbl th,.pr-tbl td{border:1px solid #ddd;padding:3px 5px;white-space:nowrap}
+        .sidebar label{cursor:pointer}
+        @media (max-width:768px){ #poly-info{bottom:calc(30vh + 42px);font-size:11px} }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
+<div id="coord-box">Y: - X: -</div>
 <div id="delta-box">ΔY: 0.00 | ΔX: 0.00</div>
+<div id="poly-info"></div>
+<div id="toast"></div>
 
 <div class="sidebar">
     <!-- AKORDİYON 1: DOSYA İŞLEMLERİ -->
@@ -164,6 +187,12 @@
                 <button class="btn btn-small" style="background:#8e44ad" onclick="swapYX()">🔁 Y ↔ X TAKAS ET</button>
                 <button class="btn btn-small" style="background:#c0392b" onclick="clearAllPoints()">🗑️ TÜMÜNÜ TEMİZLE</button>
             </div>
+            <div class="section-subtitle">PROJE (poligonlar dahil)</div>
+            <div class="btn-row">
+                <button class="btn btn-small" style="background:#16a085" onclick="saveProject()">💾 PROJE KAYDET</button>
+                <button class="btn btn-small" style="background:#2980b9" onclick="document.getElementById('projIn').click()">📂 PROJE AÇ</button>
+            </div>
+            <input type="file" id="projIn" hidden accept=".json" onchange="openProject(this)">
             <div class="section-subtitle">DIŞA AKTAR</div>
             <div class="btn-row">
                 <button class="btn btn-small" style="background:#27ae60" onclick="exportData('xls')">XLS (Excel)</button>
@@ -197,6 +226,11 @@
                 <button id="btn-delPt" class="btn btn-red" style="background:#c0392b" onclick="setMode('delPt')">✖ NOKTA SİL</button>
                 <button id="btn-delLine" class="btn btn-red" style="background:#c0392b" onclick="setMode('delLine')">✂ HAT SİL</button>
             </div>
+            <div class="btn-row">
+                <button id="btn-circle" class="btn" style="background:#8e44ad" onclick="setMode('circle')">⭕ ÇEMBER (merkez, yarıçap)</button>
+                <button id="btn-text" class="btn" style="background:#2980b9" onclick="setMode('text')">🔤 YAZI EKLE</button>
+            </div>
+            <button class="btn" style="background:#7f8c8d" onclick="undo()">↩️ GERİ AL (Ctrl+Z)</button>
         </div>
     </div>
 
@@ -207,6 +241,37 @@
             <button id="btn-calcDist" class="btn" style="background:#27ae60; font-size:11px;" onclick="setMode('calcDist')">📐 MESAFE & EĞİM (HARİTADAN SEÇ)</button>
             <button class="btn" style="background:#2980b9; font-size:11px;" onclick="calculateGaussArea()">🟩 POLİGON ALAN & ÇEVRE HESABI</button>
             <button class="btn" style="background:#16a085; font-size:12px; padding:10px; margin-top:5px;" onclick="document.getElementById('page-overlay').style.display='block'">📈 KÜBAJ VE LOJİSTİK MOTORU</button>
+        </div>
+    </div>
+
+    <!-- AKORDİYON: POLİGON / KAPALI OBJELER -->
+    <div class="accordion-item">
+        <div class="accordion-header active">⬠ POLİGON / KAPALI OBJELER</div>
+        <div class="accordion-content show">
+            <div class="section-subtitle">Kapalı obje tanımla</div>
+            <button id="btn-poly" class="btn" style="background:#c0392b" onclick="setMode('poly')">✏️ HARİTADAN KÖŞE SEÇEREK ÇİZ</button>
+            <div class="btn-row">
+                <button class="btn btn-small" style="background:#16a085" onclick="openPolyDefModal()">🔢 NOKTA NO İLE</button>
+                <button class="btn btn-small" style="background:#2980b9" onclick="polyFromChecked()">☑️ TABLODA SEÇİLEN</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-small" style="background:#8e44ad" onclick="detectClosedLoops()">🔍 KAPALI HATLARI BUL</button>
+                <button class="btn btn-small" style="background:#7f8c8d" onclick="polyFromAll()">📋 TÜM NOKTALAR</button>
+            </div>
+            <div class="section-subtitle">Tanımlı objeler (tıkla → haritada göster)</div>
+            <div id="polyList" style="max-height:170px;overflow-y:auto"></div>
+            <div class="section-subtitle">Bölme & birleştirme</div>
+            <button class="btn" style="background:#d35400" onclick="openSplitModal()">✂️ ALAN BÖL (yön + alan / mesafe)</button>
+            <div class="btn-row">
+                <button id="btn-splitLine" class="btn btn-small" style="background:#c0392b" onclick="startSplitLine()">📐 İKİ NOKTA İLE BÖL</button>
+                <button class="btn btn-small" style="background:#2c3e50" onclick="openMergeModal()">🔗 ALAN BİRLEŞTİR</button>
+            </div>
+            <div style="font-size:10px;color:#888">Birleştir menüsü alanları otomatik algılar ve listeler.</div>
+            <div class="section-subtitle">Harita etiketleri</div>
+            <label style="font-size:11px;display:block"><input type="checkbox" id="opt-area" checked onchange="polyOpt.area=this.checked;drawPolys()"> Ad + alan + çevre etiketi</label>
+            <label style="font-size:11px;display:block"><input type="checkbox" onchange="polyOpt.edge=this.checked;drawPolys()"> Kenar uzunlukları</label>
+            <label style="font-size:11px;display:block"><input type="checkbox" onchange="polyOpt.order=this.checked;drawPolys()"> Köşe sırası (1,2,3…)</label>
+            <button class="btn" style="background:#2980b9; margin-top:6px" onclick="calculateGaussArea()">🟩 ALAN & ÇEVRE RAPORU</button>
         </div>
     </div>
 
@@ -255,6 +320,19 @@
         </div>
     </div>
     
+    <!-- AKORDİYON 6: KATMANLAR -->
+    <div class="accordion-item">
+        <div class="accordion-header">🗂️ KATMANLAR (LAYER) & YAKALAMA</div>
+        <div class="accordion-content">
+            <label style="font-size:11px;display:block;margin-bottom:5px"><input type="checkbox" checked onchange="snapOn=this.checked"> Uç nokta yakalama (Snap)</label>
+            <div class="btn-row">
+                <button class="btn btn-small" onclick="setAllLayers(true)">Hepsini Aç</button>
+                <button class="btn btn-small" onclick="setAllLayers(false)">Hepsini Kapat</button>
+            </div>
+            <div id="layerList" style="max-height:160px;overflow-y:auto;margin-top:5px"></div>
+        </div>
+    </div>
+
     <button class="btn" style="background:#000; margin-top:10px; padding:10px;" onclick="zoomAll()">🎯 EKRANA SIĞDIR</button>
 </div>
 
@@ -292,6 +370,87 @@
             <button class="btn" style="background:var(--success)" onclick="saveManualPoint()">Ekle</button>
             <button class="btn" style="background:var(--danger)" onclick="closeManualPointModal()">İptal</button>
         </div>
+    </div>
+</div>
+
+<!-- POLİGON TANIMLA MODAL -->
+<div id="polyDefModal" class="modal">
+    <div class="modal-content">
+        <h3>🔢 Nokta No ile Poligon Tanımla</h3>
+        <label>Obje adı:</label>
+        <input type="text" id="pd-name">
+        <label>Köşe nokta numaraları (sırayla; boşluk / virgül / satır ile ayırın. Aralık için: P1-P8):</label>
+        <textarea id="pd-ids" rows="4" style="width:100%;padding:6px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;margin:4px 0 10px" placeholder="P1 P2 P3 P4  veya  P1-P8"></textarea>
+        <div class="btn-row">
+            <button class="btn" style="background:var(--success)" onclick="savePolyDef()">Oluştur</button>
+            <button class="btn" style="background:var(--danger)" onclick="closePolyDefModal()">İptal</button>
+        </div>
+    </div>
+</div>
+
+<!-- ALAN BİRLEŞTİRME MODAL -->
+<div id="mergeModal" class="modal">
+    <div class="modal-content" style="width:420px;max-height:92vh;overflow:auto">
+        <h3>🔗 Alan Birleştir</h3>
+        <div id="mg-note" style="font-size:11px;color:#555;margin-bottom:6px"></div>
+        <div class="btn-row">
+            <button class="btn btn-small" style="background:#8e44ad" onclick="mgDetect()">🔍 HATLARDAN ALGILA</button>
+            <button class="btn btn-small" style="background:#7f8c8d" onclick="mgAll(true)">☑ TÜMÜNÜ SEÇ</button>
+        </div>
+        <div id="mg-list" style="max-height:38vh;overflow:auto;margin:6px 0"></div>
+        <div id="mg-sum" style="background:#f4f6f7;padding:6px;border-radius:4px;font-size:11px;margin-bottom:8px"></div>
+        <label>Birleşik alan adı:</label>
+        <input type="text" id="mg-name">
+        <label style="display:block;margin-bottom:10px"><input type="checkbox" id="mg-del" checked style="width:auto;margin:0 5px 0 0"> Orijinal alanları sil</label>
+        <div class="btn-row">
+            <button class="btn" style="background:var(--success)" onclick="doMerge()">🔗 BİRLEŞTİR</button>
+            <button class="btn" style="background:var(--danger)" onclick="closeMergeModal()">İptal</button>
+        </div>
+    </div>
+</div>
+
+<!-- ALAN BÖLME MODAL -->
+<div id="splitModal" class="modal">
+    <div class="modal-content" style="width:400px;max-height:92vh;overflow:auto">
+        <h3>✂️ Alan Bölme</h3>
+        <label>Bölünecek obje:</label>
+        <select id="sp-poly" onchange="updateSplitInfo()" style="width:100%;padding:5px;margin:4px 0 8px"></select>
+        <div id="sp-info" style="background:#f4f6f7;padding:6px;border-radius:4px;font-size:11px;margin-bottom:8px"></div>
+        <label>Bölme yönü (parça hangi kenardan başlar):</label>
+        <select id="sp-dir" onchange="updateSplitInfo()" style="width:100%;padding:5px;margin:4px 0 8px">
+            <option value="left">⬅ Soldan (kesim çizgileri düşey)</option>
+            <option value="right">➡ Sağdan (kesim çizgileri düşey)</option>
+            <option value="bottom">⬇ Aşağıdan (kesim çizgileri yatay)</option>
+            <option value="top">⬆ Yukarıdan (kesim çizgileri yatay)</option>
+            <option value="custom">🧭 Özel açı (azimut)</option>
+        </select>
+        <div id="sp-az-wrap" style="display:none"><label>Tarama yönü azimutu (°, Kuzey=0, Doğu=90):</label><input type="number" id="sp-az" value="45" onchange="updateSplitInfo()"></div>
+        <label>Yöntem:</label>
+        <select id="sp-method" onchange="onSpMethod()" style="width:100%;padding:5px;margin:4px 0 8px">
+            <option value="equal">Eşit alanlı N parça</option>
+            <option value="area">Alan ile (m²) — sabit / liste</option>
+            <option value="dist">Mesafe ile (m) — sabit / liste</option>
+        </select>
+        <label id="sp-vlabel">Değer:</label>
+        <input type="text" id="sp-vals" value="2" oninput="updateSplitInfo()">
+        <label style="display:block;margin-bottom:10px"><input type="checkbox" id="sp-del" checked style="width:auto;margin:0 5px 0 0"> Orijinal objeyi sil</label>
+        <div class="btn-row">
+            <button class="btn" style="background:var(--success)" onclick="doSplit()">✂️ BÖL</button>
+            <button class="btn" style="background:var(--danger)" onclick="closeSplitModal()">İptal</button>
+        </div>
+    </div>
+</div>
+
+<!-- POLİGON RAPOR MODAL -->
+<div id="polyReport" class="modal">
+    <div class="modal-content" style="width:820px;max-width:96%;max-height:90vh;overflow:auto">
+        <h3>🟩 Poligon Alan & Çevre Raporu</h3>
+        <div id="pr-body"></div>
+        <div class="btn-row" style="margin-top:10px">
+            <button class="btn" style="background:#2980b9" onclick="showPolyOnMap()">🗺️ HARİTADA GÖSTER</button>
+            <button class="btn" style="background:#27ae60" onclick="exportPolyCSV()">📄 CSV İNDİR</button>
+        </div>
+        <button class="btn" style="background:var(--danger)" onclick="closePolyReport()">Kapat</button>
     </div>
 </div>
 
@@ -364,6 +523,8 @@
 // --- CAD GLOBAL DEĞİŞKENLERİ ---
 let pts = []; 
 let lns = []; 
+let txts = [];          // DXF yazıları
+let kmlImportProj = null; // KML içe aktarma DOM/zone
 let map, lyrPts, lyrLns, baseTileLayer = null;
 let mode = 'idle';
 let lineStartPt = null;
@@ -383,14 +544,19 @@ let loadedFileCount = 0;
 
 // --- BAŞLATMA ---
 function init() {
-    map = L.map('map', { crs: L.CRS.Simple, minZoom: -10, zoomControl: false });
+    map = L.map('map', { crs: L.CRS.Simple, minZoom: -10, maxZoom: 20, zoomControl: false, preferCanvas: true });
+    lyrPoly = L.layerGroup().addTo(map);
     lyrLns = L.layerGroup().addTo(map);
+    L.control.scale({ imperial: false, position: 'bottomright' }).addTo(map);
     lyrPts = L.layerGroup().addTo(map);
     map.setView([0, 0], 0);
 
     map.on('click', onMapClick);
+    map.on('zoomend', updateTextSizes);
+    map.on('mousemove', e => { const cb = document.getElementById('coord-box'); if (cb) cb.textContent = `Y: ${e.latlng.lng.toFixed(3)}  X: ${e.latlng.lat.toFixed(3)}`; });
+    document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); } });
     document.addEventListener('keydown', (e) => {
-        if(e.key === "Escape") { setMode('idle'); alert("Mod İptal Edildi."); }
+        if(e.key === "Escape") { setMode('idle'); }
     });
 
     initAccordion();
@@ -424,12 +590,15 @@ function initAccordion() {
 
 // --- RENDER MOTORU ---
 function render() {
+    prunePolys();
     filterTable();
+    refreshPolyList();
+    updatePolyInfo();
 }
 
 function renderTableRows(ptsToRender) {
     lyrPts.clearLayers();
-    lyrLns.clearLayers();
+    lyrLns.clearLayers(); drawPolys();
 
     const tBody = document.getElementById('tBody');
     tBody.innerHTML = '';
@@ -441,23 +610,33 @@ function renderTableRows(ptsToRender) {
     const lblMode = document.getElementById('labelMode').value;
 
     lns.forEach((lineObj, idx) => {
+        if (layerVis[lineObj.layer] === false) return;
         const poly = L.polyline(
             [[lineObj.from.x, lineObj.from.y], [lineObj.to.x, lineObj.to.y]], 
-            { color: lColor, weight: parseInt(lWidth), opacity: 0.8 }
+            { color: lineObj.color || lColor, weight: parseInt(lWidth), opacity: 0.8 }
         ).addTo(lyrLns);
         lineObj.leafletPoly = poly; 
 
         poly.on('click', (e) => {
             if (mode === 'delLine') {
                 L.DomEvent.stopPropagation(e);
-                if(confirm("Hat silinsin mi?")) { lns.splice(idx, 1); render(); }
+                if(confirm("Hat silinsin mi?")) { pushUndo(); lns.splice(idx, 1); render(); }
             }
         });
     });
 
+    txts.forEach(t => {
+        if (layerVis[t.layer] === false) return;
+        const esc = String(t.text).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+        L.marker([t.x, t.y], { interactive: false, icon: L.divIcon({ className: 'dxf-txt', iconSize: [0, 0],
+            html: `<span data-h="${t.h||0}" style="position:absolute;left:0;bottom:0;line-height:1;transform-origin:0 100%;transform:rotate(${-(t.rot||0)}deg);color:${t.color||'#cfd8dc'};font:10px monospace;white-space:nowrap;text-shadow:0 0 2px #000">${esc}</span>` }) }).addTo(lyrLns);
+    });
+    updateTextSizes();
+
     pts.forEach((p, i) => {
+        if (layerVis[p.layer] === false) return;
         const ptColorToUse = p.fileColor || pColor;
-        const iconHtml = `<div id="pt-icon-${i}" style="width:${pSize}px; height:${pSize}px; background:${ptColorToUse}; border:2px solid white; border-radius:50%; box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>`;
+        const iconHtml = `<div id="pt-icon-${i}" style="width:${pSize}px; height:${pSize}px; background:${ptColorToUse}; border:2px solid ${polySelSet.has(p) ? '#f1c40f' : 'white'}; border-radius:50%; box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>`;
 
         const marker = L.marker([p.x, p.y], {
             draggable: true,
@@ -503,6 +682,8 @@ function renderTableRows(ptsToRender) {
             if (mode === 'delPt') { deletePoint(i); return; }
             if (mode === 'line') { handleLineClick(p); return; }
             if (mode === 'calcDist') { handleCalcDistClick(p); return; }
+            if (mode === 'poly') { handlePolyClick(p); return; }
+            if (mode === 'splitLine') { handleSplitPt(p); return; }
             highlightRow(i);
         });
     });
@@ -534,10 +715,11 @@ function renderStylesOnly() {
         const div = document.getElementById(`pt-icon-${i}`);
         if(div) { div.style.width = pSize + 'px'; div.style.height = pSize + 'px'; div.style.background = p.fileColor || pColor; }
     });
-    lns.forEach(l => { if(l.leafletPoly) l.leafletPoly.setStyle({ color: lColor, weight: parseInt(lWidth) }); });
+    lns.forEach(l => { if(l.leafletPoly) l.leafletPoly.setStyle({ color: l.color || lColor, weight: parseInt(lWidth) }); });
 }
 
 function updateConnectedLines(pointObj) {
+    polyLiveUpdate(pointObj);
     lns.forEach(l => {
         if (l.from === pointObj || l.to === pointObj) {
             if(l.leafletPoly) { l.leafletPoly.setLatLngs([[l.from.x, l.from.y], [l.to.x, l.to.y]]); }
@@ -610,7 +792,7 @@ function applyZOffset() {
     if(val === null) return;
     const offset = parseFloat(val);
     if(isNaN(offset)) return alert("Geçersiz sayı!");
-    pts.forEach(p => p.z = Math.round((p.z + offset) * 1000) / 1000);
+    allNodes().forEach(p => p.z = Math.round(((p.z || 0) + offset) * 1000) / 1000);
     render();
     alert(`Tüm noktalara ${offset > 0 ? '+'+offset : offset} m kot ofseti uygulandı.`);
 }
@@ -618,7 +800,8 @@ function applyZOffset() {
 function swapYX() {
     if(!pts.length) return alert("Dönüştürülecek nokta bulunamadı!");
     if(confirm("Tüm noktaların Y (Doğu) ve X (Kuzey) koordinatları karşılıklı değiştirilsin mi?")) {
-        pts.forEach(p => { const tmp = p.y; p.y = p.x; p.x = tmp; });
+        allNodes().forEach(p => { const tmp = p.y; p.y = p.x; p.x = tmp; });
+        txts.forEach(t => { const tmp = t.y; t.y = t.x; t.x = tmp; }); areaProj = null;
         render(); zoomAll();
     }
 }
@@ -648,24 +831,6 @@ function handleCalcDistClick(p) {
     }
 }
 
-function calculateGaussArea() {
-    if(pts.length < 3) return alert("Alan hesabı için en az 3 nokta gereklidir!");
-    let areaSum = 0;
-    let perimeter = 0;
-    const n = pts.length;
-
-    for (let i = 0; i < n; i++) {
-        const j = (i + 1) % n;
-        areaSum += pts[i].y * pts[j].x;
-        areaSum -= pts[j].y * pts[i].x;
-
-        const dy = pts[j].y - pts[i].y;
-        const dx = pts[j].x - pts[i].x;
-        perimeter += Math.sqrt(dy*dy + dx*dx);
-    }
-    const area = Math.abs(areaSum) / 2.0;
-    alert(`🟩 GAUSS ALAN VE ÇEVRE HESABI:\n-----------------------------\n• Toplam Nokta Sayısı: ${n}\n• Poligon Alanı: ${area.toFixed(2)} m² (${(area/10000).toFixed(4)} Hektar)\n• Poligon Çevresi: ${perimeter.toFixed(2)} m`);
-}
 
 // --- OTOMATİK HAT ALGORİTMALARI ---
 function autoLink(type) {
@@ -711,8 +876,9 @@ function autoLink(type) {
 
 // --- STANDART İŞLEMLER ---
 function setMode(m) {
+    cancelPolyDraft(); splitLineNodes = [];
     mode = (mode === m) ? 'idle' : m;
-    lineStartPt = null;
+    lineStartPt = null; circleCenter = null;
     distSelectedPts = [];
     document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-active'));
     if(mode !== 'idle') document.getElementById('btn-'+m)?.classList.add('btn-active');
@@ -720,8 +886,27 @@ function setMode(m) {
 
 function onMapClick(e) {
     if(mode === 'add') {
-        pts.push({ id: "P" + (pts.length + 1), y: e.latlng.lng, x: e.latlng.lat, z: 0 });
+        pushUndo(); const ll = snapLatLng(e.latlng);
+        pts.push({ id: "P" + (pts.length + 1), y: ll.lng, x: ll.lat, z: 0 });
         render(); highlightRow(pts.length - 1);
+    } else if(mode === 'poly') {
+        const ll = snapLatLng(e.latlng);
+        let p = findNodeAt(ll.lat, ll.lng);
+        if(!p) { pushUndo(); p = { id: "P" + (pts.length + 1), y: ll.lng, x: ll.lat, z: 0 }; pts.push(p); render(); }
+        handlePolyClick(p);
+    } else if(mode === 'splitLine') {
+        const ll = snapLatLng(e.latlng);
+        handleSplitPt(findNodeAt(ll.lat, ll.lng) || { y: ll.lng, x: ll.lat, z: 0 });
+    } else if(mode === 'circle') {
+        const ll = snapLatLng(e.latlng);
+        if(!circleCenter) { circleCenter = ll; return; }
+        pushUndo(); addCircleLines(circleCenter.lng, circleCenter.lat, Math.hypot(ll.lng - circleCenter.lng, ll.lat - circleCenter.lat), 'CEMBER');
+        circleCenter = null; render();
+    } else if(mode === 'text') {
+        const t = prompt("Yazı:"); if(!t) return;
+        pushUndo(); const ll = snapLatLng(e.latlng);
+        txts.push({ y: ll.lng, x: ll.lat, text: t, layer: 'YAZI', h: 0, rot: 0, color: null });
+        regLayers({}, new Set(['YAZI'])); render();
     }
 }
 
@@ -749,86 +934,125 @@ function highlightRow(idx) {
 }
 
 function zoomAll() {
-    if(pts.length) map.fitBounds(L.featureGroup(pts.map(p=>L.marker([p.x, p.y]))).getBounds().pad(0.1));
+    const all = [];
+    pts.forEach(p => all.push([p.x, p.y]));
+    lns.forEach(l => { all.push([l.from.x, l.from.y]); all.push([l.to.x, l.to.y]); });
+    if (!all.length) return;
+    const med = a => { const b = a.slice().sort((m, n) => m - n); return b[Math.floor(b.length / 2)]; };
+    const mx = med(all.map(a => a[0])), my = med(all.map(a => a[1]));
+    let use = all.filter(a => Math.abs(a[0] - mx) < 50000 && Math.abs(a[1] - my) < 50000); // 0,0 gibi yerel profil çizimlerini dışarıda bırak
+    if (!use.length) use = all;
+    map.fitBounds(L.latLngBounds(use).pad(0.1));
 }
 
 // --- DOSYA YÖNETİMİ VE PARSERLAR ---
-function loadFile(input) {
-    const files = Array.from(input.files || []);
-    if(!files.length) return;
-
-    let pending = files.length;
-    let format = 'YXZ'; 
-    
-    const hasTextFiles = files.some(f => f.name.match(/\.(txt|ncn|xyz|csv)$/i));
-    if(hasTextFiles) {
-        const isYXZ = confirm("Veri formatı seçimi:\n\n[Tamam/OK] => Y (Doğu), X (Kuzey), Z (Standart Netcad)\n[İptal/Cancel] => X (Kuzey), Y (Doğu), Z");
-        format = isYXZ ? 'YXZ' : 'XYZ';
-    }
-
-    files.forEach(file => {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const reader = new FileReader();
-
-        if (ext === 'xls' || ext === 'xlsx') {
-            reader.onload = (e) => {
-                const tempArr = [];
-                parseExcel(e.target.result, tempArr);
-                processImportedPoints(tempArr, file.name);
-                pending--;
-                if(pending === 0) { render(); zoomAll(); input.value = ''; }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-        else if (ext === 'dxf') {
-            reader.onload = (e) => {
-                const tempArr = [];
-                parseDXF(e.target.result, tempArr, lns);
-                processImportedPoints(tempArr, file.name);
-                pending--;
-                if(pending === 0) { render(); zoomAll(); input.value = ''; }
-            };
-            reader.readAsText(file);
-        }
-        else if (ext === 'kmz') {
-            reader.onload = async (e) => {
-                try {
-                    const zip = await JSZip.loadAsync(e.target.result);
-                    let kmlFileKeys = Object.keys(zip.files).filter(filename =>
-                        filename.toLowerCase().endsWith('.kml') && !filename.startsWith('__MACOSX')
-                    );
-                    if (kmlFileKeys.length > 0) {
-                        for(let kmlKey of kmlFileKeys) {
-                            const kmlText = await zip.files[kmlKey].async("string");
-                            const tempArr = [];
-                            parseKML(kmlText, tempArr, lns);
-                            processImportedPoints(tempArr, file.name);
-                        }
-                    } else { alert(`"${file.name}" içerisinde geçerli bir KML bulunamadı.`); }
-                } catch(err) { alert(`KMZ dosyası işlenirken hata: ${err.message}`); }
-                pending--;
-                if(pending === 0) { render(); zoomAll(); input.value = ''; }
-            };
-            reader.readAsArrayBuffer(file);
-        } 
-        else {
-            reader.onload = (e) => {
-                const content = e.target.result;
-                const tempArr = [];
-
-                if (ext === 'csv') parseCSV(content, tempArr, format);
-                else if (ext === 'kml') parseKML(content, tempArr, lns);
-                else if (ext === 'geojson' || ext === 'json') parseGeoJSON(content, tempArr);
-                else parseTextData(content, tempArr, format); 
-
-                processImportedPoints(tempArr, file.name);
-
-                pending--;
-                if(pending === 0) { render(); zoomAll(); input.value = ''; }
-            };
-            reader.readAsText(file, "UTF-8");
-        }
+// ==== ORTAK DOSYA OKUYUCU ====
+function readFileAs(file, mode) {
+    return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.onerror = () => rej(r.error);
+        mode === 'buf' ? r.readAsArrayBuffer(file) : r.readAsText(file, 'UTF-8');
     });
+}
+function decodeText(buf) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder('windows-1254').decode(buf); } // Türkçe CAD dosyaları (DXF vb.)
+}
+
+// Dilim Orta Meridyeni (DOM) / UTM Zone sorma. Dönüş: {cm,k0} | {deg:true} | null (iptal)
+let lastDOM = "36";
+function askProjection(title, allowDegrees) {
+    const msg = title + "\n\n" +
+        "• 3° TM (ITRF96 DOM): 27, 30, 33, 36, 39, 42, 45 (Örn: Mersin/Tarsus = 36)\n" +
+        "• 6° UTM Zone: 'U35' veya 'ZONE36' biçiminde\n" +
+        (allowDegrees ? "• Dönüşüm yapmadan (derece olarak) almak için: D\n" : "") +
+        "\nDilim Orta Meridyeni (DOM) / Zone giriniz:";
+    let ans = prompt(msg, lastDOM);
+    if (ans === null) return null;
+    ans = ans.trim().toUpperCase();
+    if (allowDegrees && ans === 'D') return { deg: true };
+    if (ans.startsWith('U') || ans.includes('ZONE')) {
+        const z = parseInt(ans.replace(/[^0-9]/g, '')) || 36;
+        lastDOM = ans;
+        return { cm: (z - 1) * 6 - 180 + 3, k0: 0.9996 };
+    }
+    const d = parseFloat(ans.replace(',', '.'));
+    if (isNaN(d)) { alert("Geçersiz DOM değeri."); return askProjection(title, allowDegrees); }
+    lastDOM = String(d);
+    return { cm: d, k0: 1.0 };
+}
+
+// Enlem/Boylam -> TM (Doğu, Kuzey) — Krüger serisi
+function latLonToTM(lat, lon, cm, k0 = 1.0) {
+    const a = 6378137.0, f = 1 / 298.257223563, n = f / (2 - f);
+    const A = a / (1 + n) * (1 + n*n/4 + Math.pow(n,4)/64);
+    const al = [n/2 - 2*n*n/3 + 5*Math.pow(n,3)/16, 13*n*n/48 - 3*Math.pow(n,3)/5, 61*Math.pow(n,3)/240];
+    const rad = Math.PI / 180, phi = lat * rad, lam = (lon - cm) * rad;
+    const q = 2 * Math.sqrt(n) / (1 + n);
+    const t = Math.sinh(Math.atanh(Math.sin(phi)) - q * Math.atanh(q * Math.sin(phi)));
+    const xi = Math.atan2(t, Math.cos(lam));
+    const eta = Math.atanh(Math.sin(lam) / Math.sqrt(1 + t*t));
+    let E = eta, N = xi;
+    for (let j = 1; j <= 3; j++) {
+        E += al[j-1] * Math.cos(2*j*xi) * Math.sinh(2*j*eta);
+        N += al[j-1] * Math.sin(2*j*xi) * Math.cosh(2*j*eta);
+    }
+    return { e: 500000 + k0 * A * E, n: k0 * A * N };
+}
+
+async function readAnyFile(file, format, lineTarget) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const arr = [];
+    if (ext === 'xls' || ext === 'xlsx') { parseExcel(await readFileAs(file, 'buf'), arr); }
+    else if (ext === 'dxf') { lastDxfStat = parseDXF(decodeText(await readFileAs(file, 'buf')), arr, lineTarget); }
+    else if (ext === 'kmz') {
+        const zip = await JSZip.loadAsync(await readFileAs(file, 'buf'));
+        const keys = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.kml') && !n.startsWith('__MACOSX'));
+        if (!keys.length) throw new Error("KMZ içinde KML bulunamadı.");
+        for (const k of keys) parseKML(await zip.files[k].async('string'), arr, lineTarget);
+    }
+    else if (ext === 'kml') { parseKML(decodeText(await readFileAs(file, 'buf')), arr, lineTarget); }
+    else {
+        const txt = decodeText(await readFileAs(file, 'buf'));
+        if (ext === 'csv') parseCSV(txt, arr, format);
+        else if (ext === 'geojson' || ext === 'json') parseGeoJSON(txt, arr, lineTarget);
+        else parseTextData(txt, arr, format);
+    }
+    return arr;
+}
+
+// KML/KMZ varsa içe aktarmadan önce DOM sor. false dönerse işlem iptal.
+function prepareKmlProjection(files) {
+    kmlImportProj = null;
+    if (!files.some(f => /\.(kml|kmz|geojson|json)$/i.test(f.name))) return true;
+    const p = askProjection("KML İÇE AKTARMA — KML enlem/boylam (derece) içerir.\nÇizim koordinat sistemine (Y=Doğu, X=Kuzey) çevirmek için dilim orta meridyenini seçin.", true);
+    if (p === null) return false;
+    kmlImportProj = p.deg ? null : p;
+    return true;
+}
+
+async function loadFile(input) {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    let format = 'YXZ';
+    if (files.some(f => /\.(txt|ncn|xyz|csv)$/i.test(f.name))) {
+        format = confirm("Veri formatı seçimi:\n\n[Tamam/OK] => Y (Doğu), X (Kuzey), Z (Standart Netcad)\n[İptal/Cancel] => X (Kuzey), Y (Doğu), Z") ? 'YXZ' : 'XYZ';
+    }
+    if (!prepareKmlProjection(files)) { input.value = ''; return; }
+    const report = [];
+    for (const file of files) {
+        try {
+            const nLn = lns.length, nTx = txts.length;
+            const arr = await readAnyFile(file, format, lns);
+            processImportedPoints(arr, file.name);
+            report.push(`${file.name}: ${arr.length} nokta, ${lns.length - nLn} çizgi` + (txts.length - nTx ? `, ${txts.length - nTx} yazı` : '') + dxfUnsupNote(file.name));
+        } catch (err) { report.push(`${file.name}: HATA - ${err.message}`); }
+    }
+    input.value = '';
+    render(); zoomAll();
+    { const cl = detectClosedLoops(true); if (cl.added) { render(); report.push(`⬠ ${cl.added} kapalı hat otomatik poligon olarak tanımlandı`); } }
+    alert("İçe aktarma tamamlandı:\n\n" + report.join('\n'));
 }
 
 function processImportedPoints(tempArr, fileName) {
@@ -849,7 +1073,7 @@ function processImportedPoints(tempArr, fileName) {
 function clearAllPoints() {
     if(!pts.length) return;
     if(confirm(`Ekrandaki TÜM noktalar (${pts.length} adet) ve hatlar silinsin mi?`)) {
-        pts = []; lns = []; loadedFileCount = 0;
+        pts = []; lns = []; txts = []; polys = []; selPoly = null; areaProj = null; loadedFileCount = 0;
         render();
     }
 }
@@ -884,64 +1108,247 @@ function parseExcel(arrayBuffer, targetArray) {
     } catch(err) { alert("Excel dosyası okuma hatası: " + err.message); }
 }
 
+// ===== GELİŞMİŞ DXF MOTORU (BLOCK/INSERT, bulge, SPLINE, ELLIPSE, layer, renk, OCS) =====
+let layerVis = {}, layerCol = {}, lastDxfStat = null, circleCenter = null, snapOn = true, undoStack = [];
+const ACI_BASE = {1:'#ff0000',2:'#ffff00',3:'#00ff00',4:'#00ffff',5:'#0000ff',6:'#ff00ff',7:'#ffffff',8:'#808080',9:'#c0c0c0'};
+function aciToHex(n) {
+    if (ACI_BASE[n]) return ACI_BASE[n];
+    if (n >= 250 && n <= 255) { const v = [51,91,132,173,214,255][n-250]; return `rgb(${v},${v},${v})`; }
+    if (n >= 10 && n <= 249) {
+        const h = Math.floor((n-10)/10)*15, k = (n-10)%10, s = k%2 ? 0.5 : 1, v = [1,.65,.5,.3,.15][k>>1];
+        const l = v*(1-s/2), sl = (l === 0 || l === 1) ? 0 : (v-l)/Math.min(l, 1-l);
+        return `hsl(${h},${Math.round(sl*100)}%,${Math.round(l*100)}%)`;
+    }
+    return null;
+}
+function regLayers(defs, used) {
+    used.forEach(n => { if (!(n in layerVis)) { layerVis[n] = !(defs[n] && defs[n].off); layerCol[n] = defs[n] ? defs[n].color : '#ffffff'; } });
+    renderLayerPanel();
+}
+function renderLayerPanel() {
+    const box = document.getElementById('layerList'); if (!box) return;
+    box.innerHTML = '';
+    const names = Object.keys(layerVis).sort();
+    if (!names.length) { box.innerHTML = '<div style="font-size:10px;color:#999">Layer yok (DXF yükleyin).</div>'; return; }
+    names.forEach(n => {
+        const row = document.createElement('label');
+        row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:11px;padding:1px 0;cursor:pointer';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = layerVis[n];
+        cb.onchange = () => { layerVis[n] = cb.checked; render(); };
+        const sw = document.createElement('span'); sw.style.cssText = `width:10px;height:10px;border:1px solid #888;background:${layerCol[n]||'#fff'}`;
+        row.append(cb, sw, document.createTextNode(n)); box.appendChild(row);
+    });
+}
+function setAllLayers(v) { Object.keys(layerVis).forEach(n => layerVis[n] = v); renderLayerPanel(); render(); }
+function updateTextSizes() {
+    if (!map) return; const s = Math.pow(2, map.getZoom());
+    document.querySelectorAll('.dxf-txt span').forEach(sp => {
+        const h = parseFloat(sp.dataset.h) || 0, px = h ? h*s : 10;
+        sp.style.display = px < 4 ? 'none' : ''; sp.style.fontSize = Math.min(px, 300) + 'px';
+    });
+}
+function dxfUnsupNote(name) {
+    if (!/\.dxf$/i.test(name) || !lastDxfStat) return '';
+    const u = Object.entries(lastDxfStat.unsup).map(([k, v]) => `${k}×${v}`).join(', ');
+    return u ? ` [desteklenmeyen: ${u}]` : '';
+}
+// --- Geri Al ---
+function snapshot() {
+    const idx = new Map(), P = [], add = o => { if (!idx.has(o)) { idx.set(o, P.length); P.push(o); } return idx.get(o); };
+    pts.forEach(add);
+    const Ls = lns.map(l => ({ ...l, leafletPoly: undefined, from: add(l.from), to: add(l.to) }));
+    const Qs = polys.map(q => ({ ...q, pts: q.pts.map(add) })); return { Q: Qs, P: P.map(o => ({ ...o, leafletMarker: undefined })), n: pts.length, L: Ls, T: txts.slice() };
+}
+function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 15) undoStack.shift(); }
+function undo() {
+    const s = undoStack.pop(); if (!s) return alert("Geri alınacak işlem yok.");
+    const P = s.P.map(o => ({ ...o }));
+    pts = P.slice(0, s.n); lns = s.L.map(l => ({ ...l, from: P[l.from], to: P[l.to] })); txts = s.T; polys = (s.Q || []).map(q => ({ ...q, pts: q.pts.map(i => P[i]) })); render();
+}
+// --- Snap (uç nokta yakalama) ---
+function snapLatLng(ll) {
+    if (!snapOn) return ll;
+    const c = map.latLngToContainerPoint(ll); let best = null, bd = 14;
+    const chk = p => { const q = map.latLngToContainerPoint([p.x, p.y]), d = Math.hypot(q.x-c.x, q.y-c.y); if (d < bd) { bd = d; best = p; } };
+    pts.forEach(chk); lns.forEach(l => { chk(l.from); chk(l.to); });
+    return best ? L.latLng(best.x, best.y) : ll;
+}
+function addCircleLines(cy, cx, r, layer) {
+    const n = 72, nd = [];
+    for (let k = 0; k < n; k++) { const a = 2*Math.PI*k/n; nd.push({ id: 'C'+k, y: cy + r*Math.cos(a), x: cx + r*Math.sin(a), z: 0, virtual: true }); }
+    for (let k = 0; k < n; k++) lns.push({ from: nd[k], to: nd[(k+1)%n], layer });
+    regLayers({}, new Set([layer]));
+}
+
 function parseDXF(dxfText, targetArray, targetLines) {
-    const lines = dxfText.split(/\r?\n/);
-    let i = 0;
-    let currEntity = null;
-    let p = {};
-    let lineData = {};
-    let polyPoints = [];
+    if (/^\s*AutoCAD Binary DXF/.test(dxfText)) throw new Error("İkili (binary) DXF desteklenmiyor; ASCII DXF olarak kaydedin.");
+    const Ls = dxfText.split(/\r?\n/), secs = {}, blockList = [], blocks = {}, defs = {}, used = new Set();
+    let sec = null, cur = null, blk = null, expectName = false;
+    for (let i = 0; i + 1 < Ls.length; i += 2) {
+        const c = Ls[i].trim(), v = Ls[i+1].trim();
+        if (c === '0') {
+            if (v === 'SECTION') { expectName = true; cur = null; continue; }
+            if (v === 'ENDSEC' || v === 'EOF') { sec = null; cur = null; continue; }
+            if (!sec) { cur = null; continue; }
+            cur = { t: v, g: [] };
+            if (sec === 'BLOCKS') {
+                if (v === 'BLOCK') { blk = { g: cur.g, ents: [] }; blockList.push(blk); }
+                else if (v === 'ENDBLK') blk = null;
+                else if (blk) blk.ents.push(cur);
+            } else (secs[sec] = secs[sec] || []).push(cur);
+            continue;
+        }
+        if (c === '2' && expectName) { sec = v; expectName = false; continue; }
+        if (cur) cur.g.push([c, v]);
+    }
+    const F = (g, c, d = 0) => { const r = g.find(x => x[0] === c); const n = r ? parseFloat(r[1]) : NaN; return isNaN(n) ? d : n; };
+    const S = (g, c, d = '') => { const r = g.find(x => x[0] === c); return r ? r[1] : d; };
+    const tc = g => { const t = g.find(x => x[0] === '420'); return t ? '#' + (parseInt(t[1]) & 0xffffff).toString(16).padStart(6, '0') : null; };
+    blockList.forEach(b => { blocks[S(b.g, '2')] = { ents: b.ents, base: [F(b.g,'10'), F(b.g,'20'), F(b.g,'30')] }; });
+    (secs.TABLES || []).filter(e => e.t === 'LAYER').forEach(e => {
+        const ci = F(e.g, '62', 7);
+        defs[S(e.g, '2')] = { off: ci < 0 || (F(e.g, '70', 0) & 1) === 1, color: tc(e.g) || aciToHex(Math.abs(ci)) || '#ffffff', aci: Math.abs(ci) };
+    });
+    const nodes = new Map(), kSet = new Set(), cnt = {}, stat = { pts: 0, lines: 0, texts: 0, unsup: {} };
+    const node = (x, y, z) => { const k = x.toFixed(3) + '|' + y.toFixed(3);
+        if (!nodes.has(k)) nodes.set(k, { id: 'V' + (nodes.size + 1), y: x, x: y, z: z || 0, virtual: true }); return nodes.get(k); };
+    const addPt = (x, y, z, id, ly) => {
+        const k = x.toFixed(3) + '|' + y.toFixed(3) + '|' + (z||0).toFixed(3);
+        if (kSet.has(k)) return; kSet.add(k);
+        targetArray.push({ id: id || ('P' + (targetArray.length + 1)), y: x, x: y, z: z || 0, layer: ly }); stat.pts++;
+    };
+    const addLine = (a, b, ly, ci) => {
+        if (!targetLines) { addPt(a[0], a[1], a[2], null, ly); addPt(b[0], b[1], b[2], null, ly); return; }
+        if (Math.hypot(a[0]-b[0], a[1]-b[1]) < 1e-9) return;
+        targetLines.push({ from: node(a[0], a[1], a[2]), to: node(b[0], b[1], b[2]), layer: ly, color: ci.c, aci: ci.a }); stat.lines++;
+    };
+    const TT = (M, x, y, z) => [M[0]*x + M[2]*y + M[4], M[1]*x + M[3]*y + M[5], M[6]*z + M[7]];
+    const mul = (M, N) => [M[0]*N[0]+M[2]*N[1], M[1]*N[0]+M[3]*N[1], M[0]*N[2]+M[2]*N[3], M[1]*N[2]+M[3]*N[3],
+        M[0]*N[4]+M[2]*N[5]+M[4], M[1]*N[4]+M[3]*N[5]+M[5], M[6]*N[6], M[6]*N[7]+M[7]];
+    const xyz = (g, a, b, c) => { const o = []; g.forEach(([k, v]) => { if (k === a) o.push([parseFloat(v), 0, 0]); else if (k === b && o.length) o[o.length-1][1] = parseFloat(v); else if (k === c && o.length) o[o.length-1][2] = parseFloat(v); }); return o; };
+    const nurbs = (deg, kn, cp, w, n) => {
+        const out = [], t0 = kn[deg], t1 = kn[kn.length-deg-1];
+        for (let s = 0; s <= n; s++) {
+            const t = s === n ? t1 - 1e-9 : t0 + (t1-t0)*s/n; let sp = deg;
+            while (sp < kn.length - deg - 2 && t >= kn[sp+1]) sp++;
+            const Nb = new Array(deg+1).fill(0), lf = [], rt = []; Nb[0] = 1;
+            for (let j = 1; j <= deg; j++) { lf[j] = t-kn[sp+1-j]; rt[j] = kn[sp+j]-t; let sv = 0;
+                for (let r = 0; r < j; r++) { const d = rt[r+1]+lf[j-r], tmp = d ? Nb[r]/d : 0; Nb[r] = sv + rt[r+1]*tmp; sv = lf[j-r]*tmp; } Nb[j] = sv; }
+            let x = 0, y = 0, z = 0, ws = 0;
+            for (let j = 0; j <= deg; j++) { const i = sp-deg+j; if (!cp[i]) continue; const wt = (w[i] || 1)*Nb[j]; x += cp[i][0]*wt; y += cp[i][1]*wt; z += cp[i][2]*wt; ws += wt; }
+            if (ws) out.push([x/ws, y/ws, z/ws]);
+        }
+        return out;
+    };
+    const cleanTxt = t => t.replace(/\\U\+([0-9A-Fa-f]{4})/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
+        .replace(/%%[cC]/g, 'Ø').replace(/%%[dD]/g, '°').replace(/%%[pP]/g, '±').replace(/%%[uUoO]/g, '')
+        .replace(/\\P/g, ' ').replace(/\\S([^;]*?)[\^#\/]([^;]*);/g, '$1/$2').replace(/\\[Ff][^;]*;|\\[A-Za-z][^;\\]*;/g, '').replace(/\\~/g, ' ').replace(/[{}]/g, '').trim();
 
-    while(i < lines.length) {
-        let code = lines[i]?.trim();
-        let val = lines[i+1]?.trim();
-        i += 2;
-
-        if (code === '0') {
-            if (currEntity === 'POINT' && !isNaN(p.x) && !isNaN(p.y)) {
-                targetArray.push({ id: p.id || ("P" + (targetArray.length + 1)), y: p.x, x: p.y, z: p.z || 0 });
-            } else if (currEntity === 'LINE' && targetLines && !isNaN(lineData.x1) && !isNaN(lineData.y1) && !isNaN(lineData.x2) && !isNaN(lineData.y2)) {
-                let pt1 = { id: "P" + (targetArray.length + 1), y: lineData.x1, x: lineData.y1, z: lineData.z1 || 0 };
-                targetArray.push(pt1);
-                let pt2 = { id: "P" + (targetArray.length + 1), y: lineData.x2, x: lineData.y2, z: lineData.z2 || 0 };
-                targetArray.push(pt2);
-                targetLines.push({ from: pt1, to: pt2 });
-            } else if (currEntity === 'LWPOLYLINE' && targetLines && polyPoints.length > 1) {
-                let ptsCreated = [];
-                polyPoints.forEach(pt => {
-                    let ptObj = { id: "P" + (targetArray.length + 1), y: pt.x, x: pt.y, z: pt.z || 0 };
-                    targetArray.push(ptObj);
-                    ptsCreated.push(ptObj);
-                });
-                for(let k = 0; k < ptsCreated.length - 1; k++) {
-                    targetLines.push({ from: ptsCreated[k], to: ptsCreated[k+1] });
+    const run = (ents, M, pc, depth, pLy) => {
+        let poly = null;
+        const flush = () => {
+            if (!poly) return;
+            if (poly.face) { poly.faces.forEach(f => { const c = f.map(i => poly.v[Math.abs(i)-1]).filter(Boolean); if (c.length > 2) pl(c, true, poly.ly, poly.ci); }); }
+            else pl(expand(poly.v, poly.closed), poly.closed, poly.ly, poly.ci);
+            poly = null;
+        };
+        const pl = (v, closed, ly, ci) => {
+            const w = v.map(p => TT(M, p[0], p[1], p[2]));
+            for (let k = 0; k + 1 < w.length; k++) addLine(w[k], w[k+1], ly, ci);
+            if (closed && w.length > 2) addLine(w[w.length-1], w[0], ly, ci);
+        };
+        const expand = (v, closed) => {
+            const o = [];
+            for (let i = 0; i < v.length; i++) {
+                const a = v[i]; o.push([a[0], a[1], a[2]]);
+                const b = v[i+1] || (closed ? v[0] : null);
+                if (b && a[3] && targetLines) {
+                    const th = 4*Math.atan(a[3]), dx = b[0]-a[0], dy = b[1]-a[1], d = Math.hypot(dx, dy);
+                    if (d > 1e-12) {
+                        const h = d/2*(1-a[3]*a[3])/(2*a[3]), cx = (a[0]+b[0])/2 - dy/d*h, cy = (a[1]+b[1])/2 + dx/d*h;
+                        const r = Math.hypot(a[0]-cx, a[1]-cy), a0 = Math.atan2(a[1]-cy, a[0]-cx), m = Math.max(2, Math.ceil(Math.abs(th)/0.09));
+                        for (let k = 1; k < m; k++) { const t = a0 + th*k/m; o.push([cx + r*Math.cos(t), cy + r*Math.sin(t), a[2] + (b[2]-a[2])*k/m]); }
+                    }
                 }
             }
-            currEntity = val;
-            p = { id: "P" + (targetArray.length + 1) };
-            lineData = {};
-            polyPoints = [];
-        } else if (currEntity === 'POINT') {
-            if (code === '10') p.x = parseFloat(val); 
-            if (code === '20') p.y = parseFloat(val); 
-            if (code === '30') p.z = parseFloat(val);
-            if (code === '2' || code === '1') p.id = val;
-        } else if (currEntity === 'LINE') {
-            if (code === '10') lineData.x1 = parseFloat(val);
-            if (code === '20') lineData.y1 = parseFloat(val);
-            if (code === '30') lineData.z1 = parseFloat(val);
-            if (code === '11') lineData.x2 = parseFloat(val);
-            if (code === '21') lineData.y2 = parseFloat(val);
-            if (code === '31') lineData.z2 = parseFloat(val);
-        } else if (currEntity === 'LWPOLYLINE') {
-            if (code === '10') polyPoints.push({ x: parseFloat(val), y: 0, z: 0 });
-            else if (code === '20' && polyPoints.length > 0) polyPoints[polyPoints.length - 1].y = parseFloat(val);
-            else if (code === '38' && polyPoints.length > 0) polyPoints[polyPoints.length - 1].z = parseFloat(val);
+            return o;
+        };
+        for (const e of ents) {
+            const g = e.g; let ly = S(g, '8', '0'); if (ly === '0' && pLy) ly = pLy;
+            const ca = F(g, '62', 256); if (e.t !== 'VERTEX' && e.t !== 'SEQEND') used.add(ly);
+            let cc = tc(g), aci = (ca >= 1 && ca <= 255) ? ca : (defs[ly] ? defs[ly].aci : 0);
+            if (!cc) cc = ca === 0 ? pc : (ca >= 1 && ca <= 255 ? aciToHex(ca) : (defs[ly] ? defs[ly].color : null));
+            const ci = { c: cc || null, a: aci };
+            const ext = F(g, '230', 1), oc = ext < 0 ? (x => -x) : (x => x), z0 = F(g, '30', 0);
+            switch (e.t) {
+                case 'POINT': { const p = TT(M, F(g,'10'), F(g,'20'), z0); addPt(p[0], p[1], p[2], S(g,'1') || null, ly); break; }
+                case 'CIRCLE': case 'ARC': {
+                    const cx = oc(F(g,'10')), cy = F(g,'20'), r = F(g,'40'), isC = e.t === 'CIRCLE';
+                    if (isC) { const ly2 = S(g,'8') || 'DAIRE'; cnt[ly2] = (cnt[ly2]||0)+1; const p = TT(M, cx, cy, z0); addPt(p[0], p[1], p[2], ly2 + '_' + cnt[ly2], ly); }
+                    if (!targetLines) break;
+                    const a1 = isC ? 0 : F(g,'50'), a2 = isC ? 360 : F(g,'51');
+                    let sw = ((a2-a1) % 360 + 360) % 360; if (sw === 0) sw = 360;
+                    const n = Math.max(12, Math.ceil(sw/4)), v = [];
+                    for (let k = 0; k <= n; k++) { const a = (a1 + sw*k/n)*Math.PI/180; v.push([oc(F(g,'10') + r*Math.cos(a)), cy + r*Math.sin(a), z0]); }
+                    pl(v, false, ly, ci); break; }
+                case 'ELLIPSE': {
+                    if (!targetLines) break;
+                    const c = [F(g,'10'), F(g,'20'), z0], mj = [F(g,'11'), F(g,'21'), F(g,'31')], rt = F(g,'40',1);
+                    let t0 = F(g,'41',0), t1 = F(g,'42',2*Math.PI); if (t1 <= t0) t1 += 2*Math.PI;
+                    const n = Math.max(24, Math.ceil((t1-t0)/0.1)), v = [];
+                    for (let k = 0; k <= n; k++) { const t = t0 + (t1-t0)*k/n;
+                        v.push([c[0] + Math.cos(t)*mj[0] - Math.sin(t)*rt*mj[1], c[1] + Math.cos(t)*mj[1] + Math.sin(t)*rt*mj[0], c[2]]); }
+                    pl(v, false, ly, ci); break; }
+                case 'SPLINE': {
+                    if (!targetLines) break;
+                    const deg = F(g,'71',3), kn = g.filter(x => x[0] === '40').map(x => parseFloat(x[1])), cp = xyz(g,'10','20','30'),
+                          w = g.filter(x => x[0] === '41').map(x => parseFloat(x[1])), fit = xyz(g,'11','21','31');
+                    let v = (cp.length > deg && kn.length === cp.length + deg + 1) ? nurbs(deg, kn, cp, w, Math.max(24, cp.length*10)) : (fit.length ? fit : cp);
+                    pl(v, false, ly, ci); break; }
+                case 'LINE': { const a = TT(M, F(g,'10'), F(g,'20'), z0), b = TT(M, F(g,'11'), F(g,'21'), F(g,'31')); addLine(a, b, ly, ci); break; }
+                case 'LWPOLYLINE': {
+                    const el = F(g,'38',0), v = [];
+                    g.forEach(([c, val]) => { if (c === '10') v.push([oc(parseFloat(val)), 0, el, 0]); else if (c === '20' && v.length) v[v.length-1][1] = parseFloat(val); else if (c === '42' && v.length) v[v.length-1][3] = ext < 0 ? -parseFloat(val) : parseFloat(val); });
+                    const cl = (F(g,'70',0) & 1) === 1; pl(expand(v, cl), cl, ly, ci); break; }
+                case 'LEADER': pl(xyz(g,'10','20','30'), false, ly, ci); break;
+                case 'POLYLINE': { const fl = F(g,'70',0); poly = { v: [], faces: [], face: (fl & 64) === 64, closed: (fl & 1) === 1, elev: z0, ly, ci }; break; }
+                case 'VERTEX': if (poly) { const fl = F(g,'70',0);
+                    if (poly.face && (fl & 128) && !(fl & 64)) poly.faces.push([F(g,'71'), F(g,'72'), F(g,'73'), F(g,'74')].filter(Boolean));
+                    else if (!(fl & 16)) poly.v.push([F(g,'10'), F(g,'20'), F(g,'30', poly.elev), F(g,'42',0)]); } break;
+                case 'SEQEND': flush(); break;
+                case 'SOLID': case 'TRACE': case '3DFACE': {
+                    const ks = e.t === '3DFACE' ? ['10','11','12','13'] : ['10','11','13','12'];
+                    pl(ks.map(k => [F(g,k), F(g,'2'+k.slice(1)), F(g,'3'+k.slice(1))]), true, ly, ci); break; }
+                case 'INSERT': {
+                    const bk = blocks[S(g,'2')]; if (!bk || depth > 8) { if (!bk) stat.unsup['INSERT(blok yok)'] = (stat.unsup['INSERT(blok yok)']||0)+1; break; }
+                    const sx = F(g,'41',1), sy = F(g,'42',1), sz = F(g,'43',1), rot = F(g,'50',0)*Math.PI/180, co = Math.cos(rot), si = Math.sin(rot);
+                    const cols = Math.max(1, F(g,'70',1)), rows = Math.max(1, F(g,'71',1)), dc = F(g,'44',0), dr = F(g,'45',0);
+                    const ix = oc(F(g,'10')), iy = F(g,'20'), bs = bk.base;
+                    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+                        const ox = ix + c*dc*co - r*dr*si, oy = iy + c*dc*si + r*dr*co;
+                        const a = sx*co, b = sx*si, cc2 = -sy*si, d = sy*co;
+                        const N = [a, b, cc2, d, ox - (a*bs[0] + cc2*bs[1]), oy - (b*bs[0] + d*bs[1]), sz, z0 - sz*bs[2]];
+                        run(bk.ents, mul(M, N), ci.c, depth + 1, ly);
+                    } break; }
+                case 'DIMENSION': { const bk = blocks[S(g,'2')]; if (bk && depth < 8) run(bk.ents, M, ci.c, depth + 1, ly); break; }
+                case 'TEXT': case 'MTEXT': case 'ATTRIB': {
+                    if (!targetLines || (e.t === 'ATTRIB' && (F(g,'70',0) & 1))) break;
+                    const t = cleanTxt(g.filter(x => x[0] === '3').map(x => x[1]).join('') + S(g,'1')); if (!t) break;
+                    const al = e.t !== 'MTEXT' && (F(g,'72',0) || F(g,'73',0)) && g.some(x => x[0] === '11');
+                    let x = al ? F(g,'11') : F(g,'10'), y = al ? F(g,'21') : F(g,'20');
+                    let rot = (e.t === 'MTEXT' && g.some(x => x[0] === '11')) ? Math.atan2(F(g,'21'), F(g,'11'))*180/Math.PI : F(g,'50',0);
+                    const p = TT(M, oc(x), y, z0);
+                    txts.push({ y: p[0], x: p[1], text: t, layer: ly, h: F(g,'40',0)*Math.hypot(M[0], M[1]), rot: rot + Math.atan2(M[1], M[0])*180/Math.PI, color: ci.c });
+                    stat.texts++; break; }
+                case 'ATTDEF': case 'VIEWPORT': break;
+                default: stat.unsup[e.t] = (stat.unsup[e.t] || 0) + 1;
+            }
         }
-    }
-    if (currEntity === 'POINT' && !isNaN(p.x) && !isNaN(p.y)) {
-        targetArray.push({ id: p.id || ("P" + (targetArray.length + 1)), y: p.x, x: p.y, z: p.z || 0 });
-    }
+        flush();
+    };
+    run(secs.ENTITIES || [], [1,0,0,1,0,0,1,0], null, 0, null);
+    regLayers(defs, used);
+    return stat;
 }
 
 function parseTextData(data, targetArray, format) {
@@ -1049,6 +1456,11 @@ function parseKmlCoordinates(coordString) {
 }
 
 function parseKML(xmlStr, targetArray, targetLines = null) {
+    const cv = (c) => {
+        if (!kmlImportProj) return { y: c.lon, x: c.lat };
+        const r = latLonToTM(c.lat, c.lon, kmlImportProj.cm, kmlImportProj.k0);
+        return { y: r.e, x: r.n };
+    };
     try {
         const parser = new DOMParser();
         const xml = parser.parseFromString(xmlStr, "text/xml");
@@ -1076,8 +1488,8 @@ function parseKML(xmlStr, targetArray, targetLines = null) {
                 if(parsed.length > 0) {
                     targetArray.push({
                         id: String(baseName),
-                        y: parsed[0].lon, // Longitude / Doğu
-                        x: parsed[0].lat, // Latitude / Kuzey
+                        y: cv(parsed[0]).y,
+                        x: cv(parsed[0]).x,
                         z: parsed[0].alt
                     });
                 }
@@ -1093,8 +1505,8 @@ function parseKML(xmlStr, targetArray, targetLines = null) {
                     parsed.forEach((c, pIdx) => {
                         let newPoint = {
                             id: `${baseName}_V${pIdx + 1}`,
-                            y: c.lon,
-                            x: c.lat,
+                            y: cv(c).y,
+                            x: cv(c).x,
                             z: c.alt
                         };
                         targetArray.push(newPoint);
@@ -1113,21 +1525,6 @@ function parseKML(xmlStr, targetArray, targetLines = null) {
     }
 }
 
-function parseGeoJSON(jsonStr, targetArray) {
-    try {
-        const geo = JSON.parse(jsonStr);
-        const features = geo.features || (geo.type === 'Feature' ? [geo] : []);
-        features.forEach(f => {
-            if(f.geometry && f.geometry.type === 'Point') {
-                const c = f.geometry.coordinates;
-                targetArray.push({
-                    id: String(f.properties?.name || f.properties?.id || "P"+(targetArray.length+1)),
-                    y: c[0], x: c[1], z: c[2] || 0
-                });
-            }
-        });
-    } catch(e) { alert("GeoJSON format hatası"); }
-}
 
 // --- TM / UTM ➔ WGS84 DÖNÜŞTÜRÜCÜ (DOM VE UTM DESTEKLİ) ---
 function tmToLatLon(easting, northing, centralMeridian, scaleFactor = 1.0, isNorthern = true) {
@@ -1174,7 +1571,7 @@ function tmToLatLon(easting, northing, centralMeridian, scaleFactor = 1.0, isNor
 }
 
 function exportData(type) {
-    if(!pts.length) return alert("Veri yok!");
+    if(!pts.length && !lns.length && !txts.length) return alert("Veri yok!");
     let content = "", filename = "Proje." + type, mime = "text/plain";
 
     if(type === 'xls') {
@@ -1189,41 +1586,27 @@ function exportData(type) {
         mime = "text/csv";
     }
     else if (type === 'dxf') {
-        content = "0\nSECTION\n2\nENTITIES\n";
-        pts.forEach(p => content += `0\nPOINT\n8\nNOKTA\n10\n${p.y}\n20\n${p.x}\n30\n${p.z}\n`);
-        lns.forEach(l => content += `0\nLINE\n8\nHAT\n10\n${l.from.y}\n20\n${l.from.x}\n30\n${l.from.z||0}\n11\n${l.to.y}\n21\n${l.to.x}\n31\n${l.to.z||0}\n`);
+        content = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
+        pts.forEach(p => content += `0\nPOINT\n8\n${p.layer||'NOKTA'}\n10\n${p.y}\n20\n${p.x}\n30\n${p.z}\n`);
+        lns.forEach(l => content += `0\nLINE\n8\n${l.layer||'HAT'}\n${l.aci ? `62\n${l.aci}\n` : ''}10\n${l.from.y}\n20\n${l.from.x}\n30\n${l.from.z||0}\n11\n${l.to.y}\n21\n${l.to.x}\n31\n${l.to.z||0}\n`);
+        txts.forEach(t => content += `0\nTEXT\n8\n${t.layer||'YAZI'}\n10\n${t.y}\n20\n${t.x}\n30\n0\n40\n${t.h||1}\n1\n${t.text}\n50\n${t.rot||0}\n`);
+        polys.forEach(q => { const s = polyStats(q, true);
+            content += `0\nPOLYLINE\n8\nPARSEL\n66\n1\n70\n1\n`;
+            q.pts.forEach(p => content += `0\nVERTEX\n8\nPARSEL\n10\n${p.y}\n20\n${p.x}\n30\n${p.z||0}\n`);
+            content += `0\nSEQEND\n8\nPARSEL\n`;
+            if (s) content += `0\nTEXT\n8\nPARSEL_YAZI\n10\n${s.pos[1]}\n20\n${s.pos[0]}\n30\n0\n40\n${Math.max(0.5, Math.sqrt(s.area)/25).toFixed(2)}\n1\n${q.name} A=${s.area.toFixed(2)}m2 C=${s.per.toFixed(2)}m\n`; });
         content += "0\nENDSEC\n0\nEOF\n";
         mime = "application/dxf";
     }
     else if (type === 'kml' || type === 'geojson') {
-        let isUTM = pts.some(p => Math.abs(p.y) > 180 || Math.abs(p.x) > 90);
-        let centralMeridian = 36;
-        let scaleFactor = 1.0; 
-
+        let isUTM = pts.some(p => Math.abs(p.y) > 180 || Math.abs(p.x) > 90) ||
+                    lns.some(l => Math.abs(l.from.y) > 180 || Math.abs(l.from.x) > 90);
+        let centralMeridian = 36, scaleFactor = 1.0;
         if (isUTM) {
-            let userChoice = prompt(
-                "KML/GeoJSON aktarımı için Projeksiyon Sistemini seçiniz:\n\n" +
-                "• 3° TM (ITRF96 / ED50 Dilim Orta Meridyeni - DOM) => Örn: Mersin/Tarsus için '36'\n" +
-                "• 6° UTM Zone => Örn: 'U36' veya 'ZONE36'\n\n" +
-                "Dilim Orta Meridyeni (DOM) veya Zone giriniz:", 
-                "36"
-            );
-            if (userChoice === null) return;
-            
-            userChoice = userChoice.trim().toUpperCase();
-            if (userChoice.startsWith("U") || userChoice.includes("ZONE")) {
-                let zoneNum = parseInt(userChoice.replace(/[^0-9]/g, '')) || 36;
-                centralMeridian = (zoneNum - 1) * 6 - 180 + 3;
-                scaleFactor = 0.9996; 
-            } else {
-                let domNum = parseFloat(userChoice);
-                if (!isNaN(domNum)) {
-                    centralMeridian = domNum;
-                    scaleFactor = 1.0; 
-                }
-            }
+            const pr = askProjection("KML/GeoJSON DIŞA AKTARMA — Projeksiyon seçiniz.", false);
+            if (pr === null) return;
+            centralMeridian = pr.cm; scaleFactor = pr.k0; window.__exp = { cm: pr.cm, k: pr.k0 };
         }
-
         const convertedPts = pts.map(p => {
             const coords = tmToLatLon(p.y, p.x, centralMeridian, scaleFactor);
             return { id: p.id, lon: coords.lon, lat: coords.lat, z: p.z };
@@ -1271,6 +1654,7 @@ ${lns.map(l => {
         }
     }
     
+    if ((type === 'kml' || type === 'geojson') && polys.length) content = addPolysToGeo(content, type);
     download(content, filename, mime);
 }
 
@@ -1286,98 +1670,516 @@ function download(content, filename, mimeType) {
 }
 
 // ==========================================
+// ================== POLİGON / KAPALI OBJE MODÜLÜ ==================
+let polys = [], polySeq = 0, selPoly = null, lyrPoly = null, polyDraft = [], polyDraftLayer = null, areaProj = null, polySelSet = new Set();
+const polyOpt = { area: true, edge: false, order: false };
+const polyPalette = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e84393'];
+const $id = id => document.getElementById(id);
+const escH = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fm = (v, d = 2) => Number(v).toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d });
+function toast(msg, ms = 3500) { const t = $id('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms); }
+function allNodes() { return new Set([...pts, ...lns.flatMap(l => [l.from, l.to]), ...polys.flatMap(q => q.pts)]); }
+function findNodeAt(x, y) { let r = pts.find(p => p.x === x && p.y === y); if (r) return r; for (const l of lns) { if (l.from.x === x && l.from.y === y) return l.from; if (l.to.x === x && l.to.y === y) return l.to; } return null; }
+
+// --- Geometri ---
+function metricXY(list, noPrompt) {
+    if (list.every(p => Math.abs(p.y) <= 180 && Math.abs(p.x) <= 90)) {   // derece -> metre
+        if (!areaProj) {
+            if (noPrompt) return null;
+            const r = askProjection("Koordinatlar derece (enlem/boylam) görünüyor. Alan/çevre metre cinsinden hesaplanacak.\nProjeksiyon (DOM/Zone) seçin:", false);
+            if (!r) return null; areaProj = r;
+        }
+        return { geo: true, xy: list.map(p => { const t = latLonToTM(p.x, p.y, areaProj.cm, areaProj.k0); return [t.e, t.n]; }) };
+    }
+    return { geo: false, xy: list.map(p => [p.y, p.x]) };
+}
+function segX(a, b, c, d) {
+    const o = (p, q, r) => (q[0]-p[0])*(r[1]-p[1]) - (q[1]-p[1])*(r[0]-p[0]);
+    return o(a,b,c)*o(a,b,d) < 0 && o(c,d,a)*o(c,d,b) < 0;
+}
+function polyStats(q, noPrompt, full) {
+    const m = metricXY(q.pts, noPrompt); if (!m) return null;
+    const xy = m.xy, n = xy.length, o = xy[0], P = q.pts, edges = [];
+    let s = 0, cE = 0, cN = 0, per = 0, nx = 0, ny = 0, nz = 0;
+    for (let i = 0; i < n; i++) {           // ilk köşeye göre kaydırılmış Gauss (Shoelace): hassasiyet kaybı olmaz
+        const j = (i + 1) % n, e1 = xy[i][0]-o[0], n1 = xy[i][1]-o[1], e2 = xy[j][0]-o[0], n2 = xy[j][1]-o[1];
+        const cr = e1*n2 - e2*n1; s += cr; cE += (e1+e2)*cr; cN += (n1+n2)*cr;
+        const z1 = P[i].z || 0, z2 = P[j].z || 0;
+        nx += (n1-n2)*(z1+z2); ny += (z1-z2)*(e1+e2); nz += (e1-e2)*(n1+n2);   // Newell (3B yüzey alanı)
+        const d = Math.hypot(e2-e1, n2-n1); per += d;
+        let az = Math.atan2(e2-e1, n2-n1) * 180 / Math.PI; if (az < 0) az += 360;
+        edges.push({ a: P[i], b: P[j], d, az, dz: z2 - z1 });
+    }
+    const ccw = s > 0, area = Math.abs(s) / 2;
+    edges.forEach((e, i) => {                // iç açılar
+        let t = e.az - edges[(i + n - 1) % n].az; while (t > 180) t -= 360; while (t <= -180) t += 360;
+        e.ang = (((ccw ? 180 + t : 180 - t) % 360) + 360) % 360;
+    });
+    const pos = m.geo ? [P.reduce((a, p) => a + p.x, 0) / n, P.reduce((a, p) => a + p.y, 0) / n]
+              : (Math.abs(s) > 1e-9 ? [o[1] + cN/(3*s), o[0] + cE/(3*s)] : [o[1], o[0]]);
+    let intersect = false;
+    if (full && n <= 2000) for (let i = 0; i < n && !intersect; i++) for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (segX(xy[i], xy[(i+1)%n], xy[j], xy[(j+1)%n])) { intersect = true; break; }
+    }
+    return { area, per, n, pos, ccw, edges, area3d: 0.5 * Math.hypot(nx, ny, nz), intersect, angSum: edges.reduce((a, e) => a + e.ang, 0) };
+}
+
+// --- Oluşturma / silme ---
+function addPoly(list, name, noUndo, noRender) {
+    const u = []; list.forEach(p => { if (!u.length || u[u.length-1] !== p) u.push(p); });
+    if (u.length > 1 && u[0] === u[u.length-1]) u.pop();
+    if (new Set(u).size < 3) { toast('Poligon için en az 3 farklı nokta gerekir.'); return null; }
+    if (!noUndo) pushUndo();
+    const q = { uid: ++polySeq, name: name || ('ALAN-' + polySeq), pts: u, color: polyPalette[polySeq % polyPalette.length] };
+    polys.push(q); selPoly = q.uid; if (!noRender) render(); return q;
+}
+function announce(q) { const s = polyStats(q, true, true); toast(`${q.name}: ` + (s ? `Alan ${fm(s.area)} m² · Çevre ${fm(s.per)} m` + (s.intersect ? ' ⚠️ kendini kesiyor!' : '') : 'tanımlandı')); }
+function commitPoly(list, def) {
+    const nm = prompt('Poligon / obje adı:', def || ('ALAN-' + (polySeq + 1))); if (nm === null) return null;
+    const q = addPoly(list, nm.trim()); if (q) announce(q); return q;
+}
+function prunePolys() {
+    const live = new Set(pts);
+    polys = polys.filter(q => { q.pts = q.pts.filter(p => p.virtual || live.has(p)); return q.pts.length >= 3; });
+    if (selPoly && !polys.some(q => q.uid === selPoly)) selPoly = null;
+}
+function renamePoly(uid) { const q = polys.find(x => x.uid === uid); const n = prompt('Yeni ad:', q.name); if (n) { q.name = n.trim(); render(); } }
+function deletePoly(uid) { if (confirm('Bu poligon tanımı silinsin mi? (Noktalar ve hatlar silinmez)')) { pushUndo(); polys = polys.filter(x => x.uid !== uid); render(); } }
+function selectPoly(uid, zoom) {
+    selPoly = uid; render();
+    const q = polys.find(x => x.uid === uid);
+    if (zoom && q) map.fitBounds(L.latLngBounds(q.pts.map(p => [p.x, p.y])).pad(0.35));
+}
+
+// 1) Haritadan köşe seçerek (mevcut noktaya tıkla veya boş yere tıklayıp yeni köşe oluştur)
+function handlePolyClick(p) {
+    if (polyDraft.length >= 3 && p === polyDraft[0]) return finishPolyDraft();
+    if (polyDraft.includes(p)) return toast('Bu köşe zaten seçildi.');
+    polyDraft.push(p); drawDraft();
+}
+function drawDraft() {
+    if (polyDraftLayer) { map.removeLayer(polyDraftLayer); polyDraftLayer = null; }
+    if (!polyDraft.length) return;
+    polyDraftLayer = L.polyline(polyDraft.map(p => [p.x, p.y]), { color: '#f1c40f', weight: 3, dashArray: '6 4', interactive: false }).addTo(map);
+    toast(`${polyDraft.length} köşe seçildi — kapatmak için ilk noktaya tıklayın veya Enter'a basın (Backspace: son köşeyi sil, Esc: iptal)`, 5000);
+}
+function cancelPolyDraft() { polyDraft = []; if (polyDraftLayer) { map.removeLayer(polyDraftLayer); polyDraftLayer = null; } }
+function finishPolyDraft() {
+    if (polyDraft.length < 3) return toast('En az 3 köşe seçmelisiniz.');
+    const q = commitPoly(polyDraft.slice()); if (!q) return;
+    cancelPolyDraft(); if (mode === 'poly') setMode('poly');
+}
+document.addEventListener('keydown', e => {
+    if (mode !== 'poly' || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.key === 'Enter') finishPolyDraft();
+    if (e.key === 'Backspace') { e.preventDefault(); polyDraft.pop(); drawDraft(); }
+});
+
+// 2) Nokta numaraları ile (P1,P2,P5 veya P1-P8)
+function openPolyDefModal() { $id('pd-name').value = 'ALAN-' + (polySeq + 1); $id('pd-ids').value = ''; $id('polyDefModal').style.display = 'flex'; }
+function closePolyDefModal() { $id('polyDefModal').style.display = 'none'; }
+function savePolyDef() {
+    const byId = new Map(); pts.forEach(p => { if (!byId.has(p.id)) byId.set(p.id, p); });
+    const toks = $id('pd-ids').value.split(/[\s,;]+/).filter(Boolean), list = [], miss = [];
+    toks.forEach(t => {
+        if (byId.has(t)) { list.push(byId.get(t)); return; }
+        const m = t.match(/^(\D*)(\d+)[-:](\D*)(\d+)$/);
+        if (m) { const a = +m[2], b = +m[4], st = a <= b ? 1 : -1; for (let k = a; ; k += st) { const p = byId.get(m[1] + k); if (p) list.push(p); else miss.push(m[1] + k); if (k === b) break; } }
+        else miss.push(t);
+    });
+    if (miss.length) return alert('Bulunamayan nokta no: ' + miss.slice(0, 15).join(', '));
+    const q = addPoly(list, $id('pd-name').value.trim()); if (q) { closePolyDefModal(); announce(q); }
+}
+// 3) Tabloda işaretlenenlerden (tablo sırasıyla)
+function polyFromChecked() {
+    const idx = [...document.querySelectorAll('.pt-cb:checked')].map(c => +c.dataset.idx).sort((a, b) => a - b);
+    if (idx.length < 3) return toast('Alttaki tabloda en az 3 noktanın kutucuğunu işaretleyin (köşe sırası tablo sırasıdır).');
+    commitPoly(idx.map(i => pts[i]));
+}
+// 4) Tüm noktalar liste sırasıyla
+function polyFromAll(skipConfirm) {
+    const l = pts.filter(p => !p.virtual);
+    if (l.length < 3) return toast('En az 3 nokta gerekli.');
+    if (!skipConfirm && !confirm(`${l.length} noktanın tamamı liste sırasıyla tek poligon olarak tanımlanacak. Devam?`)) return;
+    commitPoly(l, 'TUM_NOKTALAR');
+}
+
+// --- Çizim, etiket, seçili nesne vurgusu ---
+function drawPolys() {
+    if (!lyrPoly) return; lyrPoly.clearLayers();
+    const selQ = polys.find(q => q.uid === selPoly); polySelSet = new Set(selQ ? selQ.pts : []);
+    polys.forEach(q => {
+        const sel = q.uid === selPoly, s = polyStats(q, true);
+        const pg = L.polygon(q.pts.map(p => [p.x, p.y]), { color: sel ? '#f1c40f' : q.color, weight: sel ? 4 : 2, dashArray: sel ? '9 5' : null, fillColor: q.color, fillOpacity: sel ? 0.38 : 0.16 }).addTo(lyrPoly);
+        pg.bindTooltip(`<b>${escH(q.name)}</b>` + (s ? `<br>Alan: ${fm(s.area)} m²<br>Çevre: ${fm(s.per)} m` : ''), { sticky: true });
+        pg.on('click', ev => { if (mode !== 'idle') return; L.DomEvent.stopPropagation(ev); selectPoly(q.uid, false); });
+        const mk = (pos, html) => L.marker(pos, { interactive: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html }) }).addTo(lyrPoly);
+        if (polyOpt.area) mk(s ? s.pos : [q.pts[0].x, q.pts[0].y], `<div class="poly-lbl${sel ? ' sel' : ''}" style="border-color:${q.color}"><b>${escH(q.name)}</b>` + (s ? `<br>A: ${fm(s.area)} m²<br>Ç: ${fm(s.per)} m` : '') + `</div>`);
+        if (polyOpt.edge && s) s.edges.forEach(e => mk([(e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2], `<div class="poly-edge">${fm(e.d)}</div>`));
+        if (polyOpt.order) q.pts.forEach((p, i) => mk([p.x, p.y], `<div class="poly-num">${i + 1}</div>`));
+    });
+}
+function polyLiveUpdate(p) { if (polys.some(q => q.pts.includes(p))) { drawPolys(); refreshPolyList(); updatePolyInfo(); } }
+function refreshPolyList() {
+    const box = $id('polyList'); if (!box) return;
+    const chk = new Set([...document.querySelectorAll('.poly-cb:checked')].map(c => +c.dataset.uid));
+    if (!polys.length) { box.innerHTML = '<div style="font-size:10px;color:#999">Henüz poligon tanımlı değil.</div>'; return; }
+    box.innerHTML = polys.map(q => { const s = polyStats(q, true);
+        return `<div class="poly-row${q.uid === selPoly ? ' on' : ''}" onclick="selectPoly(${q.uid},true)"><input type="checkbox" class="poly-cb" data-uid="${q.uid}" ${chk.has(q.uid) ? 'checked' : ''} onclick="event.stopPropagation()"><span class="sw" style="background:${q.color}"></span><div><b>${escH(q.name)}</b> <small>(${q.pts.length} köşe)</small><br><small>${s ? `A=${fm(s.area)} m² · Ç=${fm(s.per)} m` : '—'}</small></div><span class="act"><button title="Yeniden adlandır" onclick="event.stopPropagation();renamePoly(${q.uid})">✏️</button><button title="Sil" onclick="event.stopPropagation();deletePoly(${q.uid})">🗑️</button></span></div>`; }).join('');
+}
+function updatePolyInfo() {
+    const b = $id('poly-info'), q = polys.find(x => x.uid === selPoly);
+    if (!q) { b.style.display = 'none'; return; }
+    const s = polyStats(q, true); b.style.display = 'block'; b.style.borderColor = q.color;
+    b.innerHTML = `<span class="sw-dot" style="background:${q.color}"></span>▶ <b>${escH(q.name)}</b> — ` + (s ? `Alan: <b>${fm(s.area)} m²</b> (${fm(s.area/1e4, 4)} ha) · Çevre: <b>${fm(s.per)} m</b>` : 'hesap için projeksiyon gerekli') + ` · ${q.pts.length} köşe <button onclick="selectPoly(null)">✖</button>`;
+}
+
+// --- Rapor ---
+function calculateGaussArea() {
+    if (!polys.length) {
+        const cl = detectClosedLoops(true);
+        if (cl.added) { render(); toast(`${cl.added} kapalı hat otomatik poligon olarak tanımlandı.`); }
+        else if (pts.filter(p => !p.virtual).length >= 3 && confirm("Tanımlı kapalı obje yok.\n\nTüm noktalar liste sırasıyla tek poligon olarak tanımlansın mı?\n(Hayır derseniz 'POLİGON / KAPALI OBJELER' panelinden haritadan, nokta no ile veya tablodan seçerek kendiniz tanımlayın.)")) polyFromAll(true);
+        else return alert("Önce bir kapalı obje tanımlayın: 'POLİGON / KAPALI OBJELER' panelinden haritadan köşe seçerek, nokta no girerek veya tabloda işaretleyerek poligon oluşturun.");
+    }
+    if (!polys.length || !metricXY(polys[0].pts)) return;
+    if (!selPoly) selPoly = polys[0].uid;
+    render(); $id('polyReport').style.display = 'flex'; renderPolyReport();
+}
+function closePolyReport() { $id('polyReport').style.display = 'none'; }
+function showPolyOnMap() { closePolyReport(); selectPoly(selPoly, true); }
+function renderPolyReport() {
+    const sel = polys.find(q => q.uid === selPoly) || polys[0]; if (!sel) return closePolyReport(); selPoly = sel.uid;
+    let tA = 0, tP = 0, rows = '';
+    polys.forEach((q, i) => { const s = polyStats(q, true, true); if (!s) return; tA += s.area; tP += s.per;
+        rows += `<tr class="${q === sel ? 'selected-row' : ''}" style="cursor:pointer" onclick="selectPoly(${q.uid});renderPolyReport()"><td>${i + 1}</td><td style="text-align:left"><span class="sw-dot" style="background:${q.color}"></span>${escH(q.name)}</td><td>${s.n}</td><td>${fm(s.area)}</td><td>${fm(s.area/1e4, 4)}</td><td>${fm(s.area/1e3, 3)}</td><td>${fm(s.per)}</td><td>${fm(s.area3d)}</td><td>${s.intersect ? '⚠️ Kendini kesiyor' : '✔'}</td></tr>`; });
+    const s = polyStats(sel, true, true); let det = '';
+    if (s) {
+        s.edges.forEach((e, i) => det += `<tr><td>${i + 1}</td><td>${escH(e.a.id)} → ${escH(e.b.id)}</td><td>${fm(e.d, 3)}</td><td>${fm(e.az, 4)}°</td><td>${fm(e.az * 400 / 360, 4)}</td><td>${fm(e.dz, 3)}</td><td>${e.d ? fm(e.dz / e.d * 100, 2) : '-'}</td><td>${fm(e.ang, 4)}°</td></tr>`);
+        const ex = (s.n - 2) * 180, df = s.angSum - ex;
+        det += `<tr style="font-weight:bold"><td colspan="2">Σ</td><td>${fm(s.per, 3)}</td><td colspan="4"></td><td>${fm(s.angSum, 4)}°</td></tr>`;
+        det = `<h4 style="margin:12px 0 4px">▶ ${escH(sel.name)} — Kenar / Azimut / İç Açı Tablosu <small>(${s.ccw ? 'saat yönünün tersi' : 'saat yönü'})</small></h4>
+        <div style="overflow-x:auto"><table class="pr-tbl"><thead><tr><th>#</th><th>Kenar</th><th>Uzunluk (m)</th><th>Azimut (°)</th><th>Azimut (grad)</th><th>ΔZ (m)</th><th>Eğim %</th><th>İç açı</th></tr></thead><tbody>${det}</tbody></table></div>
+        <div style="font-size:11px;margin-top:4px">İç açı kontrolü: beklenen ${fm(ex, 2)}° — bulunan ${fm(s.angSum, 4)}° — fark ${fm(df, 4)}° ${Math.abs(df) < 0.001 ? '✔' : '⚠️ (kendini kesen/hatalı köşe sırası olabilir)'}</div>`;
+    }
+    $id('pr-body').innerHTML = `<div style="overflow-x:auto"><table class="pr-tbl"><thead><tr><th>#</th><th>Obje</th><th>Köşe</th><th>Alan (m²)</th><th>Alan (ha)</th><th>Alan (dönüm)</th><th>Çevre (m)</th><th>3B Alan (m²)</th><th>Kontrol</th></tr></thead><tbody>${rows}` +
+        (polys.length > 1 ? `<tr style="font-weight:bold;background:#eee"><td colspan="3">TOPLAM</td><td>${fm(tA)}</td><td>${fm(tA/1e4, 4)}</td><td>${fm(tA/1e3, 3)}</td><td>${fm(tP)}</td><td colspan="2"></td></tr>` : '') +
+        `</tbody></table></div><div style="font-size:10px;color:#777;margin-top:3px">Satıra tıklayınca harita üzerinde o obje sarı kesikli çizgiyle vurgulanır. 1 dönüm = 1000 m². Alan, ilk köşeye göre kaydırılmış Gauss (Shoelace) formülüyle projeksiyon düzleminde hesaplanır; 3B alan kot farkını da katar.</div>` + det;
+}
+function exportPolyCSV() {
+    const n = x => String(+x.toFixed(4)).replace('.', ',');
+    let t = '\uFEFFObje;Köşe;Alan m2;Alan ha;Alan dönüm;Çevre m;3B Alan m2;Yön\n';
+    polys.forEach(q => { const s = polyStats(q, true, true); if (s) t += [q.name, s.n, n(s.area), n(s.area/1e4), n(s.area/1e3), n(s.per), n(s.area3d), s.ccw ? 'CCW' : 'CW'].join(';') + '\n'; });
+    t += '\nObje;Kenar;Başlangıç;Bitiş;Uzunluk m;Azimut derece;Azimut grad;dZ;İç açı derece\n';
+    polys.forEach(q => { const s = polyStats(q, true, true); if (s) s.edges.forEach((e, i) => t += [q.name, i + 1, e.a.id, e.b.id, n(e.d), n(e.az), n(e.az * 400 / 360), n(e.dz), n(e.ang)].join(';') + '\n'); });
+    download(t, 'Poligon_Raporu.csv', 'text/csv;charset=utf-8');
+}
+function addPolysToGeo(content, type) {
+    const e = window.__exp || { cm: 36, k: 1 };
+    const ring = q => { const r = q.pts.map(p => { const c = tmToLatLon(p.y, p.x, e.cm, e.k); return [+c.lon.toFixed(7), +c.lat.toFixed(7), p.z || 0]; }); r.push(r[0]); return r; };
+    if (type === 'kml') {
+        const pm = polys.map(q => { const s = polyStats(q, true); return `  <Placemark>\n    <name>${escH(q.name)}</name>\n    <description>Alan: ${s ? s.area.toFixed(2) : '-'} m2, Cevre: ${s ? s.per.toFixed(2) : '-'} m</description>\n    <Polygon><outerBoundaryIs><LinearRing><coordinates>${ring(q).map(c => c.join(',')).join(' ')}</coordinates></LinearRing></outerBoundaryIs></Polygon>\n  </Placemark>`; }).join('\n');
+        return content.replace('</Document>', pm + '\n</Document>');
+    }
+    const fc = JSON.parse(content);
+    polys.forEach(q => { const s = polyStats(q, true); fc.features.push({ type: 'Feature', properties: { name: q.name, area_m2: s ? +s.area.toFixed(3) : null, perimeter_m: s ? +s.per.toFixed(3) : null }, geometry: { type: 'Polygon', coordinates: [ring(q)] } }); });
+    return JSON.stringify(fc, null, 2);
+}
+
+// --- GeoJSON (Nokta, Çizgi, Poligon, Multi*) ---
+function parseGeoJSON(jsonStr, targetArray, targetLines) {
+    const cv = c => { if (!kmlImportProj) return { y: c[0], x: c[1] }; const r = latLonToTM(c[1], c[0], kmlImportProj.cm, kmlImportProj.k0); return { y: r.e, x: r.n }; };
+    try {
+        const geo = JSON.parse(jsonStr);
+        const feats = geo.features || (geo.type === 'Feature' ? [geo] : [{ type: 'Feature', properties: {}, geometry: geo }]);
+        feats.forEach(f => {
+            const g = f.geometry; if (!g) return;
+            const pr = f.properties || {}, nm = String(pr.name || pr.id || pr.NAME || ('G' + (targetArray.length + 1)));
+            const addPt = (c, id) => { const o = cv(c), p = { id, y: o.y, x: o.x, z: c[2] || 0 }; targetArray.push(p); return p; };
+            const ring = (cs, id, closed) => {
+                if (closed && cs.length > 1 && cs[0][0] === cs[cs.length-1][0] && cs[0][1] === cs[cs.length-1][1]) cs = cs.slice(0, -1);
+                let prev = null, first = null;
+                cs.forEach((c, i) => { const p = addPt(c, `${id}_V${i + 1}`); if (!first) first = p; if (targetLines && prev) targetLines.push({ from: prev, to: p }); prev = p; });
+                if (targetLines && closed && first && prev && first !== prev) targetLines.push({ from: prev, to: first });
+            };
+            switch (g.type) {
+                case 'Point': addPt(g.coordinates, nm); break;
+                case 'MultiPoint': g.coordinates.forEach((c, i) => addPt(c, `${nm}_${i + 1}`)); break;
+                case 'LineString': ring(g.coordinates, nm, false); break;
+                case 'MultiLineString': g.coordinates.forEach((r, i) => ring(r, `${nm}_${i + 1}`, false)); break;
+                case 'Polygon': g.coordinates.forEach((r, i) => ring(r, i ? `${nm}_H${i}` : nm, true)); break;
+                case 'MultiPolygon': g.coordinates.forEach((pl, k) => pl.forEach((r, i) => ring(r, `${nm}_${k + 1}${i ? 'H' + i : ''}`, true))); break;
+            }
+        });
+    } catch (e) { alert("GeoJSON format hatası: " + e.message); }
+}
+
+// ================== ALAN BÖLME & BİRLEŞTİRME ==================
+let cutSeq = 0, splitLineNodes = [];
+const DIRS = { left: 90, right: 270, bottom: 0, top: 180 };   // tarama yönü azimutu (parça bu kenardan başlar)
+function sideVec(k, az) { const d = (k === 'custom' ? az : DIRS[k]) * Math.PI / 180; return [Math.sin(d), Math.cos(d)]; }
+function sArea(v) { if (v.length < 3) return 0; const o = v[0]; let s = 0; for (let i = 0; i < v.length; i++) { const j = (i + 1) % v.length; s += (v[i].y-o.y)*(v[j].x-o.x) - (v[j].y-o.y)*(v[i].x-o.x); } return s / 2; }
+function ringArea(v) { return Math.abs(sArea(v)); }
+function cleanRing(r) { const o = []; r.forEach(p => { if (!o.length || o[o.length-1] !== p) o.push(p); }); if (o.length > 1 && o[0] === o[o.length-1]) o.pop(); return o; }
+function isGeoList(v) { return v.every(p => Math.abs(p.y) <= 180 && Math.abs(p.x) <= 90); }
+// Sutherland–Hodgman: f(p) <= 0 tarafını tut
+function clipKeep(v, f, mk) {
+    const out = [], n = v.length, E = 1e-9;
+    for (let i = 0; i < n; i++) {
+        const a = v[i], b = v[(i+1) % n], fa = f(a), fb = f(b);
+        if (fa <= E) out.push(a);
+        if ((fa < -E && fb > E) || (fa > E && fb < -E)) { const u = fa / (fa - fb); out.push(mk(a.y + (b.y-a.y)*u, a.x + (b.x-a.x)*u, (a.z||0) + ((b.z||0)-(a.z||0))*u)); }
+    }
+    return out;
+}
+function newCutId() { const ids = new Set(pts.map(p => p.id)); let id; do { id = 'K' + (++cutSeq); } while (ids.has(id)); return id; }
+function makeNodeFactory(base) {
+    const m = new Map(), k = (y, x) => y.toFixed(3) + '|' + x.toFixed(3);
+    base.forEach(p => { if (!m.has(k(p.y, p.x))) m.set(k(p.y, p.x), p); });
+    const created = [];
+    const f = (y, x, z) => { const key = k(y, x); if (m.has(key)) return m.get(key);
+        const p = { id: newCutId(), y, x, z: Math.round(z * 1000) / 1000, fileTag: 'BÖLME', fileColor: '#f1c40f' }; m.set(key, p); created.push(p); return p; };
+    f.created = created; return f;
+}
+// Yön + yöntem -> kesim konumları
+function planSplit(verts, k, az, method, vals) {
+    const [ux, uy] = sideVec(k, az), o = verts[0], s = p => (p.y-o.y)*ux + (p.x-o.x)*uy, mk0 = (y, x, z) => ({ y, x, z });
+    const ss = verts.map(s), smin = Math.min(...ss), smax = Math.max(...ss), total = ringArea(verts);
+    const areaToT = A => { let lo = smin, hi = smax; for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (ringArea(clipKeep(verts, p => s(p) - mid, mk0)) < A) lo = mid; else hi = mid; } return (lo + hi) / 2; };
+    if (!vals.length || vals.some(v => isNaN(v) || v <= 0)) throw new Error('Geçerli (pozitif) değer girin.');
+    const cuts = [];
+    if (method === 'equal') { const n = Math.round(vals[0]); if (n < 2 || n > 200) throw new Error('Parça sayısı 2–200 arasında olmalı.'); for (let i = 1; i < n; i++) cuts.push(areaToT(total * i / n)); }
+    else if (method === 'area') { let c = 0; for (const a of vals) { c += a; if (c >= total - 1e-6) throw new Error(`Alanlar toplamı (${fm(c)} m²) poligon alanına (${fm(total)} m²) ulaşıyor; kalan parça kalmıyor.`); cuts.push(areaToT(c)); } }
+    else { let c = 0; for (const d of vals) { c += d; if (c >= smax - smin - 1e-9) throw new Error(`Mesafe toplamı (${fm(c)} m) poligon genişliğini (${fm(smax - smin)} m) aşıyor.`); cuts.push(smin + c); } }
+    return { cuts, s, total, width: smax - smin };
+}
+function buildParts(verts, pl, fac) {
+    const B = [-Infinity, ...pl.cuts, Infinity], parts = [];
+    for (let i = 0; i < B.length - 1; i++) {
+        let r = verts;
+        if (B[i+1] < Infinity) r = clipKeep(r, p => pl.s(p) - B[i+1], fac);
+        if (B[i] > -Infinity) r = clipKeep(r, p => B[i] - pl.s(p), fac);
+        parts.push(cleanRing(r));
+    }
+    return parts;
+}
+function commitParts(q, parts, fac, delOrig) {
+    const good = parts.filter(r => r.length >= 3 && ringArea(r) > 1e-6);
+    if (good.length < 2) throw new Error('Kesim, poligonu iki parçaya ayırmıyor (çizgi poligonun dışında kalıyor olabilir).');
+    pushUndo();
+    const used = new Set(good.flat()); fac.created.filter(p => used.has(p)).forEach(p => pts.push(p));
+    if (delOrig) polys = polys.filter(x => x !== q);
+    const made = good.map((r, i) => addPoly(r, `${q.name}-${i + 1}`, true, true));
+    selPoly = made[0].uid; render();
+    const ar = made.map(m => polyStats(m, true).area), sum = ar.reduce((a, b) => a + b, 0);
+    toast(`${made.length} parça oluştu: ` + made.map((m, i) => `${m.name}=${fm(ar[i])} m²`).join(' · ') + ` | Σ fark: ${fm(Math.abs(sum - ringArea(q.pts)), 4)} m²`, 9000);
+    return made;
+}
+// --- Modal ---
+function openSplitModal() {
+    if (!polys.length) return toast('Önce bölünecek bir poligon tanımlayın.');
+    $id('sp-poly').innerHTML = polys.map(q => `<option value="${q.uid}"${q.uid === selPoly ? ' selected' : ''}>${escH(q.name)}</option>`).join('');
+    $id('sp-method').value = 'equal'; $id('sp-vals').value = '2';
+    $id('splitModal').style.display = 'flex'; updateSplitInfo();
+}
+function closeSplitModal() { $id('splitModal').style.display = 'none'; }
+function onSpMethod() { const m = $id('sp-method').value; $id('sp-vals').value = { equal: '2', area: '500', dist: '10' }[m]; updateSplitInfo(); }
+function spVals() { return $id('sp-vals').value.split(/[\s;,]+/).filter(Boolean).map(v => parseFloat(v.replace(',', '.'))); }
+function updateSplitInfo() {
+    const q = polys.find(x => x.uid === +$id('sp-poly').value), box = $id('sp-info'); if (!q) return;
+    const k = $id('sp-dir').value, m = $id('sp-method').value;
+    $id('sp-az-wrap').style.display = k === 'custom' ? 'block' : 'none';
+    $id('sp-vlabel').textContent = { equal: 'Parça sayısı (N):', area: 'Alanlar (m²) — sırayla, virgülle; kalan son parça olur:', dist: 'Şerit genişlikleri (m) — sırayla, virgülle:' }[m];
+    if (isGeoList(q.pts)) { box.innerHTML = '⚠️ Koordinatlar derece görünüyor; bölme için projeksiyonlu (metre) koordinat gerekir.'; return; }
+    try {
+        const pl = planSplit(q.pts, k, parseFloat($id('sp-az').value) || 0, m, spVals()), parts = buildParts(q.pts, pl, makeNodeFactory(q.pts));
+        box.innerHTML = `Toplam alan: <b>${fm(pl.total)} m²</b> · Yön boyunca genişlik: <b>${fm(pl.width)} m</b><br>Önizleme: ` + parts.map((r, i) => `<b>${i + 1})</b> ${fm(ringArea(r))} m²`).join(' · ');
+    } catch (e) { box.innerHTML = `Toplam alan: <b>${fm(ringArea(q.pts))} m²</b><br><span style="color:#c0392b">${escH(e.message)}</span>`; }
+}
+function doSplit() {
+    const q = polys.find(x => x.uid === +$id('sp-poly').value); if (!q) return;
+    if (isGeoList(q.pts)) return alert('Bölme için koordinatlar metre (projeksiyonlu) olmalı.');
+    try {
+        const pl = planSplit(q.pts, $id('sp-dir').value, parseFloat($id('sp-az').value) || 0, $id('sp-method').value, spVals()), fac = makeNodeFactory(q.pts);
+        commitParts(q, buildParts(q.pts, pl, fac), fac, $id('sp-del').checked); closeSplitModal();
+    } catch (e) { alert(e.message); }
+}
+// --- İki nokta ile (manuel kesim çizgisi) ---
+function startSplitLine() {
+    if (mode === 'splitLine') return setMode('idle');
+    if (!selPoly) return toast('Önce listeden ya da haritadan bölünecek poligonu seçin.');
+    setMode('splitLine'); splitLineNodes = [];
+    toast('Kesim çizgisinin 1. noktasını seçin (mevcut noktaya ya da haritada herhangi bir yere tıklayın).', 5000);
+}
+function handleSplitPt(p) {
+    splitLineNodes.push(p);
+    if (splitLineNodes.length < 2) return toast('2. noktayı seçin.');
+    const [a, b] = splitLineNodes; splitLineNodes = [];
+    const q = polys.find(x => x.uid === selPoly); if (!q) return;
+    if (isGeoList(q.pts)) return alert('Bölme için koordinatlar metre (projeksiyonlu) olmalı.');
+    const L = Math.hypot(b.y - a.y, b.x - a.x); if (L < 1e-9) return toast('İki nokta aynı.');
+    const f = p => ((b.y-a.y)*(p.x-a.x) - (b.x-a.x)*(p.y-a.y)) / L, fac = makeNodeFactory(q.pts);
+    try { commitParts(q, [clipKeep(q.pts, f, fac), clipKeep(q.pts, p => -f(p), fac)].map(cleanRing), fac, true); setMode('idle'); }
+    catch (e) { toast(e.message, 5000); setMode('idle'); }
+}
+// --- Birleştirme (ortak kenar silme; T-kavşak köşeleri otomatik eklenir) ---
+function insertT(r, all, tol) {
+    const o = [];
+    for (let i = 0; i < r.length; i++) {
+        const a = r[i], b = r[(i+1) % r.length]; o.push(a);
+        const dx = b.y - a.y, dy = b.x - a.x, L2 = dx*dx + dy*dy; if (L2 < 1e-12) continue; const L = Math.sqrt(L2), h = [];
+        all.forEach(p => { if (p === a || p === b) return; const t = ((p.y-a.y)*dx + (p.x-a.x)*dy) / L2; if (t <= 0 || t >= 1) return; if (Math.abs((p.y-a.y)*dy - (p.x-a.x)*dx) / L <= tol) h.push([t, p]); });
+        h.sort((u, v) => u[0] - v[0]).forEach(x => o.push(x[1]));
+    }
+    return o;
+}
+
+// ================== ALAN ALGILAMA (düzlemsel yüzey) + BİRLEŞTİRME MENÜSÜ + PROJE ==================
+// Hat ağındaki tüm kapalı alanları bulur; komşu parseller ortak kenar paylaşsa da ayrı ayrı algılanır.
+function detectClosedLoops(silent) {
+    if (lns.length > 30000) { if (!silent) toast('Hat sayısı çok fazla (>30000); otomatik algılama atlandı.'); return { added: 0, skipped: 0 }; }
+    const key = p => p.y.toFixed(3) + '|' + p.x.toFixed(3), rep = new Map(), adj = new Map();
+    const R = p => { const k = key(p); if (!rep.has(k)) { rep.set(k, p); adj.set(k, new Set()); } return k; };
+    lns.forEach(l => { const a = R(l.from), b = R(l.to); if (a !== b) { adj.get(a).add(b); adj.get(b).add(a); } });
+    const st = [...adj.keys()].filter(k => adj.get(k).size < 2);          // açıkta kalan uçları buda
+    while (st.length) { const k = st.pop(); if (!adj.has(k)) continue; adj.get(k).forEach(n => { adj.get(n).delete(k); if (adj.get(n).size < 2) st.push(n); }); adj.delete(k); }
+    const order = new Map();
+    adj.forEach((nb, k) => { const a = rep.get(k); order.set(k, [...nb].sort((u, v) => { const A = rep.get(u), B = rep.get(v); return Math.atan2(A.x - a.x, A.y - a.y) - Math.atan2(B.x - a.x, B.y - a.y); })); });
+    const seen = new Set(), faces = [];
+    adj.forEach((nb, k0) => nb.forEach(k1 => {
+        if (seen.has(k0 + '>' + k1)) return;
+        const ring = []; let a = k0, b = k1, g = 0;
+        while (!seen.has(a + '>' + b) && g++ < 200000) { seen.add(a + '>' + b); ring.push(a); const arr = order.get(b), i = arr.indexOf(a); a = b; b = arr[(i - 1 + arr.length) % arr.length]; }
+        if (a === k0 && b === k1 && ring.length >= 3) faces.push(ring);
+    }));
+    const have = new Set(polys.map(q => q.pts.map(key).sort().join(';'))); let skipped = 0; const found = [];
+    faces.forEach(f => {
+        const list = f.map(k => rep.get(k));
+        if (sArea(list) <= 1e-6) return;                                  // dış sınır (negatif yön) atlanır
+        if (new Set(f).size !== f.length) { skipped++; return; }          // noktada birleşen/8 şekilli yüzey
+        const sg = f.slice().sort().join(';'); if (have.has(f.map(k => key(rep.get(k))).sort().join(';'))) return;
+        have.add(f.map(k => key(rep.get(k))).sort().join(';')); found.push(list);
+    });
+    if (found.length) { pushUndo(); found.slice(0, 2000).forEach(l => addPoly(l, null, true, true)); if (found.length > 40) { polyOpt.area = false; const c = $id('opt-area'); if (c) c.checked = false; } }
+    if (!silent) { render(); toast(found.length ? `${found.length} kapalı alan algılandı ve poligon olarak tanımlandı.` + (skipped ? ` (${skipped} karmaşık yüzey atlandı)` : '') : 'Yeni kapalı alan bulunamadı (hatların uç uca birleştiğinden emin olun).'); }
+    return { added: found.length, skipped };
+}
+
+// Birleştirme: 1 cm tolerans ile köşe eşleme, T-kavşak köşesi ekleme, ortak kenar silme
+function mergeCore(polyVerts) {
+    const reps = [], idx = new Map(), H = new Map(), TOL = 0.01, CS = 0.02;
+    const nodeOf = p => {
+        const cx = Math.round(p.y / CS), cy = Math.round(p.x / CS);
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const l = H.get((cx+i) + '_' + (cy+j)); if (l) for (const r of l) if (Math.hypot(r.y - p.y, r.x - p.x) <= TOL) return r; }
+        const k = cx + '_' + cy; if (!H.has(k)) H.set(k, []); H.get(k).push(p); idx.set(p, reps.length); reps.push(p); return p;
+    };
+    const key = p => idx.get(nodeOf(p));
+    polyVerts.forEach(v => v.forEach(nodeOf));
+    const rings = polyVerts.map(v => { let r = cleanRing(v.map(nodeOf)); if (sArea(r) < 0) r.reverse(); return insertT(r, reps, TOL); });
+    const E = new Map(); let shared = 0, overlap = false;
+    rings.forEach(r => r.forEach((a, i) => { const b = r[(i+1) % r.length], ka = key(a), kb = key(b); if (ka === kb) return;
+        if (E.has(kb + '>' + ka)) { E.delete(kb + '>' + ka); shared++; } else if (E.has(ka + '>' + kb)) overlap = true; else E.set(ka + '>' + kb, [a, b]); }));
+    if (!shared) return { shared: 0 };
+    const out = new Map(); E.forEach(([a, b]) => { const k = key(a); if (!out.has(k)) out.set(k, []); out.get(k).push(b); });
+    const loops = [];
+    while (out.size) {
+        const k0 = out.keys().next().value, ring = [reps[k0]]; let cur = reps[k0];
+        for (let g = 0; g < 200000; g++) { const ck = key(cur), lst = out.get(ck); if (!lst || !lst.length) break; const nx = lst.shift(); if (!lst.length) out.delete(ck); if (key(nx) === k0) break; ring.push(nx); cur = nx; }
+        if (ring.length >= 3) loops.push(ring);
+    }
+    if (!loops.length) return { shared, overlap, loops: 0 };
+    loops.sort((a, b) => ringArea(b) - ringArea(a));
+    return { ring: loops[0], loops: loops.length, shared, overlap };
+}
+function openMergeModal() {
+    const pre = new Set([...document.querySelectorAll('.poly-cb:checked')].map(c => +c.dataset.uid));
+    if (lns.length) { const r = detectClosedLoops(true); if (r.added) render(); }
+    if (polys.length < 2) return toast('Birleştirmek için en az 2 alan gerekli. Önce alanları tanımlayın veya "Kapalı hatları bul" ile algılatın.', 5000);
+    $id('mg-name').value = 'BIRLESIK-' + (polySeq + 1);
+    fillMergeList(pre); $id('mergeModal').style.display = 'flex';
+}
+function closeMergeModal() { $id('mergeModal').style.display = 'none'; }
+function fillMergeList(pre) {
+    $id('mg-list').innerHTML = polys.map(q => { const s = polyStats(q, true);
+        return `<label class="poly-row" style="cursor:pointer"><input type="checkbox" class="mg-cb" data-uid="${q.uid}" ${pre && pre.has(q.uid) ? 'checked' : ''} onchange="mgSum()"><span class="sw" style="background:${q.color}"></span><div><b>${escH(q.name)}</b> <small>(${q.pts.length} köşe)</small><br><small>${s ? 'A=' + fm(s.area) + ' m²' : '—'}</small></div><span class="act"><button title="Haritada göster" onclick="event.preventDefault();selectPoly(${q.uid})">📍</button></span></label>`; }).join('');
+    $id('mg-note').textContent = `${polys.length} alan algılandı. Birleştirmek istediklerinizi işaretleyin (📍 = haritada vurgula).`;
+    mgSum();
+}
+function mgSel() { const ids = [...document.querySelectorAll('.mg-cb:checked')].map(c => +c.dataset.uid); return polys.filter(q => ids.includes(q.uid)); }
+function mgAll(v) { document.querySelectorAll('.mg-cb').forEach(c => c.checked = v); mgSum(); }
+function mgDetect() { const pre = new Set(mgSel().map(q => q.uid)); const r = detectClosedLoops(true); render(); fillMergeList(pre); toast(r.added ? `${r.added} yeni alan algılandı.` : 'Yeni kapalı alan bulunamadı.'); }
+function mgSum() {
+    const sel = mgSel(), box = $id('mg-sum'), sumA = sel.reduce((a, q) => a + ringArea(q.pts), 0);
+    let t = `Seçili: <b>${sel.length}</b> alan · Toplam: <b>${fm(sumA)} m²</b>`;
+    if (sel.length >= 2) { if (sel.some(q => isGeoList(q.pts))) t += '<br>⚠️ Koordinatlar metre olmalı.'; else { const r = mergeCore(sel.map(q => q.pts));
+        t += !r.shared ? '<br><span style="color:#c0392b">⚠️ Ortak kenar yok — komşu değiller.</span>' : r.ring ? `<br><span style="color:#27ae60">✔ Birleşik alan: <b>${fm(ringArea(r.ring))} m²</b></span>` + (r.loops > 1 ? ` <span style="color:#e67e22">(${r.loops - 1} ayrı/boşluk sınırı yok sayılır)</span>` : '') : ''; } }
+    box.innerHTML = t;
+}
+function doMerge() {
+    const sel = mgSel(); if (sel.length < 2) return toast('En az 2 alan işaretleyin.');
+    if (sel.some(q => isGeoList(q.pts))) return alert('Birleştirme için koordinatlar metre (projeksiyonlu) olmalı.');
+    const r = mergeCore(sel.map(q => q.pts));
+    if (!r.shared) return alert('Seçilen alanların ortak kenarı yok (komşu değiller).');
+    if (!r.ring) return alert('Birleşik sınır oluşturulamadı.');
+    const sumA = sel.reduce((a, q) => a + ringArea(q.pts), 0);
+    pushUndo(); if ($id('mg-del').checked) polys = polys.filter(q => !sel.includes(q));
+    const q = addPoly(r.ring, $id('mg-name').value.trim() || undefined, true, true); render(); closeMergeModal();
+    const s = polyStats(q, true);
+    toast(`${q.name}: Alan ${fm(s.area)} m² · Çevre ${fm(s.per)} m (parçaların alan toplamı ${fm(sumA)} m²)` + (r.overlap ? ' ⚠️ Alanlar üst üste biniyor.' : ''), 9000);
+}
+
+// Proje kaydet / aç (noktalar, hatlar, yazılar ve poligonlar birlikte)
+function saveProject() {
+    if (!pts.length && !lns.length && !polys.length) return toast('Kaydedilecek veri yok.');
+    const nodes = [...allNodes()], ix = new Map(nodes.map((p, i) => [p, i]));
+    const d = { app: 'CADGIS', v: 1,
+        nodes: nodes.map(p => ({ id: p.id, y: p.y, x: p.x, z: p.z || 0, layer: p.layer, fileTag: p.fileTag, fileColor: p.fileColor, virtual: !!p.virtual })),
+        pts: pts.map(p => ix.get(p)), lns: lns.map(l => ({ f: ix.get(l.from), t: ix.get(l.to), layer: l.layer, color: l.color, aci: l.aci })),
+        polys: polys.map(q => ({ name: q.name, color: q.color, p: q.pts.map(p => ix.get(p)) })), txts: txts.map(t => ({ ...t })) };
+    download(JSON.stringify(d), 'Proje.cadgis.json', 'application/json');
+}
+async function openProject(inp) {
+    const f = inp.files[0]; if (!f) return;
+    try {
+        const d = JSON.parse(await readFileAs(f, 'text'));
+        if (d.app !== 'CADGIS') throw new Error('Geçerli bir CADGIS proje dosyası değil.');
+        if ((pts.length || lns.length || polys.length) && !confirm('Mevcut çizim silinip proje açılsın mı?')) { inp.value = ''; return; }
+        pushUndo();
+        const N = d.nodes.map(o => { const n = { ...o }; if (!n.virtual) delete n.virtual; return n; });
+        pts = d.pts.map(i => N[i]); lns = d.lns.map(l => ({ from: N[l.f], to: N[l.t], layer: l.layer, color: l.color, aci: l.aci }));
+        polys = d.polys.map((q, i) => ({ uid: i + 1, name: q.name, color: q.color, pts: q.p.map(i => N[i]) })); polySeq = polys.length; selPoly = null;
+        txts = d.txts || []; areaProj = null;
+        regLayers({}, new Set([...pts.map(p => p.layer), ...lns.map(l => l.layer), ...txts.map(t => t.layer)].filter(Boolean)));
+        render(); zoomAll(); toast(`Proje açıldı: ${pts.length} nokta, ${lns.length} hat, ${polys.length} poligon.`);
+    } catch (e) { alert('Proje açılamadı: ' + e.message); }
+    inp.value = '';
+}
+
 // --- KÜBAJ VE LOJİSTİK MOTORU ---
 // ==========================================
 
-function loadKubaFile(input, target) {
+async function loadKubaFile(input, target) {
     const files = Array.from(input.files || []);
-    if(!files.length) return;
-
-    let pending = files.length;
+    if (!files.length) return;
     let format = 'YXZ';
-    
-    const hasTextFiles = files.some(f => f.name.match(/\.(txt|ncn|xyz|csv)$/i));
-    if(hasTextFiles) {
-        const isYXZ = confirm("KÜBAJ MODÜLÜ - Veri formatı seçimi:\n\n[Tamam/OK] => Y (Doğu), X (Kuzey), Z\n[İptal/Cancel] => X (Kuzey), Y (Doğu), Z");
-        format = isYXZ ? 'YXZ' : 'XYZ';
+    if (files.some(f => /\.(txt|ncn|xyz|csv)$/i.test(f.name))) {
+        format = confirm("KÜBAJ MODÜLÜ - Veri formatı seçimi:\n\n[Tamam/OK] => Y (Doğu), X (Kuzey), Z\n[İptal/Cancel] => X (Kuzey), Y (Doğu), Z") ? 'YXZ' : 'XYZ';
     }
-    
-    const newlyLoaded = [];
-
-    files.forEach(file => {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const reader = new FileReader();
-
-        const processTargetData = (tempArr) => {
-            if(target === 'nebati') {
-                k_nebati = k_nebati.concat(tempArr);
-                k_nebati_files.push({ name: file.name, count: tempArr.length });
-            } else {
-                k_kazi = k_kazi.concat(tempArr);
-                k_kazi_files.push({ name: file.name, count: tempArr.length });
-            }
-            newlyLoaded.push({ name: file.name, count: tempArr.length });
-
-            pending--;
-            if(pending === 0) {
-                updateKubaFileList(target);
-                const totalPts = target === 'nebati' ? k_nebati.length : k_kazi.length;
-                const summary = newlyLoaded.map(f => `${f.name}: ${f.count} nokta`).join('\n');
-                alert(`${target === 'nebati' ? 'Nebati' : 'Kazı/Dolgu'} yüzeyine eklendi:\n${summary}\n\nBu yüzeydeki TOPLAM nokta sayısı: ${totalPts}`);
-            }
-        };
-
-        if (ext === 'xls' || ext === 'xlsx') {
-            reader.onload = (e) => {
-                let tempArr = [];
-                parseExcel(e.target.result, tempArr);
-                processTargetData(tempArr);
-            };
-            reader.readAsArrayBuffer(file);
-        }
-        else if (ext === 'dxf') {
-            reader.onload = (e) => {
-                let tempArr = [];
-                parseDXF(e.target.result, tempArr, null);
-                processTargetData(tempArr);
-            };
-            reader.readAsText(file);
-        }
-        else if (ext === 'kmz') {
-            reader.onload = async (e) => {
-                try {
-                    const zip = await JSZip.loadAsync(e.target.result);
-                    let kmlFileKeys = Object.keys(zip.files).filter(filename =>
-                        filename.toLowerCase().endsWith('.kml') && !filename.startsWith('__MACOSX')
-                    );
-                    if (kmlFileKeys.length > 0) {
-                        for(let kmlKey of kmlFileKeys) {
-                            const kmlText = await zip.files[kmlKey].async("string");
-                            let tempArr = [];
-                            parseKML(kmlText, tempArr, null);
-                            processTargetData(tempArr);
-                        }
-                    }
-                } catch(err) { alert(`KMZ Okuma Hatası: ${err.message}`); pending--; }
-            };
-            reader.readAsArrayBuffer(file);
-        } else {
-            reader.onload = (e) => {
-                const data = e.target.result;
-                let tempArr = [];
-
-                if (ext === 'csv') parseCSV(data, tempArr, format);
-                else if (ext === 'kml') parseKML(data, tempArr, null);
-                else if (ext === 'geojson' || ext === 'json') parseGeoJSON(data, tempArr);
-                else parseTextData(data, tempArr, format);
-
-                processTargetData(tempArr);
-            };
-            reader.readAsText(file, "UTF-8");
-        }
-    });
-
-    input.value = ''; 
+    if (!prepareKmlProjection(files)) { input.value = ''; return; }
+    const report = [];
+    for (const file of files) {
+        try {
+            const arr = await readAnyFile(file, format, null);
+            if (target === 'nebati') { k_nebati = k_nebati.concat(arr); k_nebati_files.push({ name: file.name, count: arr.length }); }
+            else { k_kazi = k_kazi.concat(arr); k_kazi_files.push({ name: file.name, count: arr.length }); }
+            report.push(`${file.name}: ${arr.length} nokta`);
+        } catch (err) { report.push(`${file.name}: HATA - ${err.message}`); }
+    }
+    input.value = '';
+    updateKubaFileList(target);
+    const total = target === 'nebati' ? k_nebati.length : k_kazi.length;
+    alert(`${target === 'nebati' ? 'Nebati' : 'Kazı/Dolgu'} yüzeyine eklendi:\n${report.join('\n')}\n\nBu yüzeydeki TOPLAM nokta sayısı: ${total}`);
 }
 
 function updateKubaFileList(target) {
@@ -1687,6 +2489,9 @@ function exportKubajCSV() {
     download(csv, "Kubaj_Lojistik_Raporu.csv", "text/csv");
 }
 
+['saveManualPoint','applyZOffset','swapYX','autoLink','clearAllPoints','deletePoint','deleteSelectedPoints','handleLineClick','loadFile'].forEach(n => {
+    const f = window[n]; window[n] = function() { pushUndo(); return f.apply(this, arguments); };
+});
 init();
 </script>
 </body>
